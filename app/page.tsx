@@ -355,9 +355,10 @@ export default function Home() {
       {/* Content Area - Flex-1 to fill remaining space */}
       <div className="flex-1 overflow-hidden">
         {mainView === 'journey' && (
-          <div className="h-full flex flex-col lg:flex-row gap-2 p-2">
+          <div className="h-full">
+            <div className="h-full flex flex-col lg:flex-row gap-3 px-2 sm:px-4 lg:px-6 py-2">
             {/* Camera/Upload Section */}
-            <div className="w-full lg:w-1/2 flex-shrink-0">
+            <div className="w-full lg:w-1/3 flex-shrink-0">
               <div className="h-full flex flex-col">
                 <Tabs defaultValue="camera" className="flex-1 flex flex-col">
                   <TabsList className="flex-shrink-0">
@@ -383,7 +384,7 @@ export default function Home() {
             </div>
 
             {/* Image Preview Section */}
-            <div className="w-full lg:w-1/2 overflow-hidden">
+            <div className="w-full lg:w-2/3 overflow-hidden">
               <div className="h-full overflow-y-auto">
                 <ImagePreview
                   images={[]}
@@ -409,11 +410,12 @@ export default function Home() {
                 />
               </div>
             </div>
+            </div>
           </div>
         )}
 
         {mainView === 'hall-of-fame' && (
-          <div className="h-full overflow-y-auto">
+          <div className="h-full px-2 sm:px-4 lg:px-6 py-2 overflow-y-auto">
             <HallOfFame />
           </div>
         )}

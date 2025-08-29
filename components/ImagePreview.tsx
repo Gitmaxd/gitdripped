@@ -157,7 +157,7 @@ export default function ImagePreview({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       {/* Compact Level Indicator */}
       <div className="flex items-center justify-center">
         <div className={`px-3 py-1 rounded-full text-sm font-bold ${
@@ -176,14 +176,14 @@ export default function ImagePreview({
       </div>
 
       {/* Professional Gamified Grid Layout */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1">
         {allImages.map((image) => (
           <div key={`${image.type}-${image.index}`} className="group">
             {/* Game Card Style Container */}
             <div className="bg-card border border-border hover:border-accent transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl overflow-hidden">
               
               {/* Image Container - Clean and Visible */}
-              <div className="aspect-square relative overflow-hidden">
+              <div className="aspect-[4/3] relative overflow-hidden">
                 <img
                   src={image.data.url}
                   alt={`Level ${image.data.absurdityLevel || 1} Image`}
@@ -336,7 +336,7 @@ export default function ImagePreview({
               </div>
 
               {/* Main Content - Matches image card aspect ratio */}
-              <div className="aspect-square relative overflow-hidden bg-gradient-to-br from-purple-900/90 to-black/90 flex items-center justify-center p-4">
+              <div className="aspect-[4/3] relative overflow-hidden bg-gradient-to-br from-purple-900/90 to-black/90 flex items-center justify-center p-4">
                 <div className="text-center space-y-3">
                   
                   {/* Compact Profile */}
