@@ -10,7 +10,7 @@ import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Github, GithubIcon } from "lucide-react";
+import { GithubIcon } from "lucide-react";
 import Link from "next/link";
 
 // Type definition for image objects (matching Convex schema)
@@ -24,13 +24,18 @@ interface ImageObject {
   generationStatus?: string;
   generationError?: string;
   url: string | null;
+  // Progressive Absurdity fields
+  generationCount?: number;
+  rootImageId?: string;
+  absurdityLevel?: number;
+  previousPrompt?: string;
 }
 
 export default function Home() {
   const generateUploadUrl = useMutation(api.images.generateUploadUrl);
 
-  // Image generation scheduling mutation
-  const scheduleImageGeneration = useMutation(api.generate.scheduleImageGeneration);
+  // Image generation scheduling mutations
+  const scheduleProgressiveGeneration = useMutation(api.generate.scheduleProgressiveGeneration);
 
   const imageInput = useRef<HTMLInputElement>(null);
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -38,6 +43,8 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const images = useQuery(api.images.getImages) || [];
+  const imageCount = useQuery(api.images.getImageCount) || 0;
+  console.log('🔵 [DEBUG] Images from Convex:', images.length, 'images loaded', 'Total count:', imageCount);
   const [isCapturing, setIsCapturing] = useState(false);
 
   // Pagination state for infinite scroll
@@ -120,21 +127,125 @@ export default function Home() {
       errorMessage.includes('429');
   };
 
+  // Progressive Absurdity: Handle escalation to next level
+  const handleEscalation = async (image: { _id: string; body: string; createdAt: number; url: string; generationStatus?: string; generationCount?: number; rootImageId?: string; absurdityLevel?: number; }) => {
+    if (!image.url || !image.rootImageId || !image.absurdityLevel) {
+      console.error("Cannot escalate: missing required image data");
+      return;
+    }
+
+    if (image.absurdityLevel >= 5) {
+      toast.info("Maximum absurdity already achieved!", {
+        description: "This image has reached peak chaos mode 👑"
+      });
+      return;
+    }
+
+    // Note: escalation processing state is now handled by individual image cards
+    
+    try {
+      // Get upload URL for the current image
+      const uploadUrl = await generateUploadUrl();
+      
+      // Fetch the current image and re-upload it
+      const response = await fetch(image.url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      
+      // Re-upload the image for processing
+      const uploadResult = await fetch(uploadUrl, {
+        method: "POST", 
+        headers: { "Content-Type": blob.type },
+        body: blob,
+      });
+      
+      if (!uploadResult.ok) {
+        throw new Error(`Upload failed: ${uploadResult.statusText}`);
+      }
+      
+      const { storageId } = await uploadResult.json();
+      
+      // Schedule progressive generation
+      await scheduleProgressiveGeneration({ 
+        storageId,
+        rootImageId: image.rootImageId 
+      });
+      
+      const nextLevel = image.absurdityLevel + 1;
+      const levelNames = ["", "✨ Getting Dripped", "💎 Seriously Dripped", "🔥 Absolutely Ridiculous", "👑 PEAK ABSURDITY", "🌟 MAXIMUM CHAOS"];
+      
+      toast.success(`🚀 ESCALATING TO ${levelNames[nextLevel]}!`, {
+        description: `Level ${nextLevel} transformation in progress! ${nextLevel === 5 ? 'Prepare for ULTIMATE CHAOS!' : 'Watch the image transform and keep going!'}`,
+        duration: 8000,
+        action: {
+          label: nextLevel === 5 ? "WITNESS THE CHAOS! 👑" : "🎮 SEE PROGRESS",
+          onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+      });
+      
+    } catch (error) {
+      console.error("Failed to escalate image:", error);
+      
+      if (isQuotaError(error)) {
+        toast.error("Gemini API Quota Exceeded", {
+          description: "You've reached your daily limit. Try again later or upgrade your plan.",
+          duration: 8000,
+          action: {
+            label: "Learn More",
+            onClick: () => window.open("https://ai.google.dev/gemini-api/docs/rate-limits", "_blank"),
+          },
+        });
+      } else {
+        toast.error("Failed to Escalate", {
+          description: "Could not start the next level generation. Please try again.",
+          duration: 5000,
+        });
+      }
+    } finally {
+      // Escalation state cleanup handled by individual image cards
+    }
+  };
+
   const handleImageCapture = async (imageData: string) => {
+    console.log('🔵 [DEBUG] Starting image capture process...');
+    console.log('🔵 [DEBUG] Image data length:', imageData.length);
+    
+    // Check if user has reached maximum absurdity (Level 5)
+    if (imageCount >= 5) {
+      toast.error("Maximum Chaos Achieved! 👑", {
+        description: "You've reached Level 5 - the ultimate absurdity! Your journey is complete!",
+        duration: 6000,
+        action: {
+          label: "View Gallery",
+          onClick: () => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+        }
+      });
+      return;
+    }
+    
     setIsCapturing(true);
 
     try {
       // Convert base64 to blob
+      console.log('🔵 [DEBUG] Converting base64 to blob...');
       const response = await fetch(imageData);
       const blob = await response.blob();
+      console.log('🔵 [DEBUG] Blob created, size:', blob.size, 'bytes');
 
       // Create a File object from the blob
       const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      console.log('🔵 [DEBUG] File created:', file.name, 'size:', file.size);
 
       // Step 1: Get an upload URL from Convex
+      console.log('🔵 [DEBUG] Getting upload URL from Convex...');
       const uploadUrl = await generateUploadUrl();
+      console.log('🔵 [DEBUG] Got upload URL:', uploadUrl);
 
       // Step 2: Upload the file to the generated URL
+      console.log('🔵 [DEBUG] Uploading file to Convex...');
       const uploadResult = await fetch(uploadUrl, {
         method: "POST",
         headers: { "Content-Type": file.type },
@@ -146,17 +257,23 @@ export default function Home() {
       }
 
       const { storageId } = await uploadResult.json();
+      console.log('🔵 [DEBUG] Upload successful, storageId:', storageId);
 
-      // Step 3: Schedule image generation (this is now resilient to page refreshes)
+      // Step 3: Schedule progressive generation (starts at level 1)
       setIsGenerating(true);
       try {
-        await scheduleImageGeneration({ storageId });
-        console.log("Image generation scheduled successfully!");
+        console.log('🔵 [DEBUG] Scheduling progressive generation...');
+        const result = await scheduleProgressiveGeneration({ storageId });
+        console.log("🔵 [DEBUG] Progressive generation scheduled successfully! Result:", result);
 
-        // Show success toast
-        toast.success("Image Generation Started!", {
-          description: "You can refresh the page, generation will continue in the background.",
-          duration: 4000,
+        // Show engaging success toast
+        toast.success("🚀 ABSURDITY JOURNEY BEGINS!", {
+          description: "Level 1 in progress! Click 'GET MORE RIDICULOUS' to escalate through 5 levels of chaos!",
+          duration: 8000,
+          action: {
+            label: "See the Magic ✨",
+            onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' })
+          }
         });
       } catch (genError) {
         console.error("Failed to schedule image generation:", genError);
@@ -195,6 +312,19 @@ export default function Home() {
     event.preventDefault();
     if (!selectedImage) return;
 
+    // Check if user has reached maximum absurdity (Level 5)
+    if (imageCount >= 5) {
+      toast.error("Maximum Chaos Achieved! 👑", {
+        description: "You've reached Level 5 - the ultimate absurdity! Your journey is complete!",
+        duration: 6000,
+        action: {
+          label: "View Gallery", 
+          onClick: () => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+        }
+      });
+      return;
+    }
+
     setIsUploading(true);
 
     try {
@@ -214,16 +344,20 @@ export default function Home() {
 
       const { storageId } = await result.json();
 
-      // Step 3: Schedule image generation (this is now resilient to page refreshes)
+      // Step 3: Schedule progressive generation (starts at level 1)
       setIsGenerating(true);
       try {
-        await scheduleImageGeneration({ storageId });
-        console.log("Image generation scheduled successfully!");
+        await scheduleProgressiveGeneration({ storageId });
+        console.log("Progressive generation scheduled successfully!");
 
-        // Show success toast
-        toast.success("Image Generation Started!", {
-          description: "Your image is being enhanced with AI. You can refresh the page - generation will continue in the background.",
-          duration: 4000,
+        // Show engaging success toast
+        toast.success("🚀 ABSURDITY JOURNEY BEGINS!", {
+          description: "Level 1 in progress! Click 'GET MORE RIDICULOUS' to escalate through 5 levels of chaos!",
+          duration: 8000,
+          action: {
+            label: "See the Magic ✨",
+            onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' })
+          }
         });
       } catch (genError) {
         console.error("Failed to schedule image generation:", genError);
@@ -264,7 +398,7 @@ export default function Home() {
     <div className="flex flex-col w-full min-h-screen p-4 lg:p-6">
       <div className="flex flex-col items-start justify-start gap-2 w-full">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold">Convex Drip Me Out</h1>
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold">Git Dripped</h1>
           <Link
             href="https://github.com/michaelshimeles/drip-me-out"
             target="_blank"
@@ -277,9 +411,25 @@ export default function Home() {
             </Button>
           </Link>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Upload an image or capture a photo to see what you look like with a diamond chain.
-        </p>
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            📸 Snap a photo and watch yourself transform into a diamond deity through 5 levels of pure chaos!
+          </p>
+          
+          {/* Image Limit Status */}
+          <div className={`text-xs font-medium px-3 py-1 rounded-full inline-block ${
+            imageCount >= 5 
+              ? 'bg-red-100 text-red-800 border border-red-200' 
+              : imageCount >= 3 
+                ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                : 'bg-green-100 text-green-800 border border-green-200'
+          }`}>
+            {imageCount >= 5 
+              ? '🚫 Maximum Chaos Reached (Level 5)' 
+              : `✨ Level ${imageCount}/5 progression`
+            }
+          </div>
+        </div>
       </div>
       {/** Image upload or open camera */}
       <div className="w-full mt-6 sm:mt-8 lg:mt-10">
@@ -297,32 +447,48 @@ export default function Home() {
                     <CardTitle>Upload Image</CardTitle>
                   </CardHeader>
                   <CardContent className="flex-1 flex flex-col justify-center">
-                    <div className="space-y-4">
-                      <Input
-                        type="file"
-                        accept="image/*"
-                        ref={imageInput}
-                        onChange={(event) => setSelectedImage(event.target.files![0])}
-                        disabled={selectedImage !== null}
-                        className="w-full"
-                      />
-                      <Button
-                        type="submit"
-                        onClick={handleSendImage}
-                        size="sm"
-                        variant="outline"
-                        className="w-full h-11"
-                        disabled={isUploading || isGenerating || !selectedImage}
-                      >
-                        {isUploading ? "Uploading..." : isGenerating ? "Generating..." : "Upload & Generate"}
-                      </Button>
-                    </div>
+                    {imageCount >= 5 ? (
+                      <div className="text-center p-6 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="text-4xl mb-2">👑</div>
+                        <h3 className="font-bold text-red-800 mb-1">Maximum Chaos Achieved!</h3>
+                        <p className="text-sm text-red-600">You&apos;ve reached Level 5 - the ultimate absurdity! Your journey is complete!</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          ref={imageInput}
+                          onChange={(event) => setSelectedImage(event.target.files![0])}
+                          disabled={selectedImage !== null}
+                          className="w-full"
+                        />
+                        <Button
+                          type="submit"
+                          onClick={handleSendImage}
+                          size="sm"
+                          variant="outline"
+                          className="w-full h-11"
+                          disabled={isUploading || isGenerating || !selectedImage}
+                        >
+                          {isUploading ? "Uploading..." : isGenerating ? "Generating..." : "Upload & Generate"}
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
               <TabsContent value="camera" className="mt-4">
                 <div className="w-full">
-                  <Webcam onCapture={handleImageCapture} isUploading={isCapturing || isGenerating} />
+                  {imageCount >= 5 ? (
+                    <div className="text-center p-8 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="text-6xl mb-4">👑</div>
+                      <h3 className="text-xl font-bold text-red-800 mb-2">Maximum Chaos Achieved!</h3>
+                      <p className="text-red-600 mb-4">You&apos;ve reached Level 5 - the ultimate absurdity! Your journey is complete!</p>
+                    </div>
+                  ) : (
+                    <Webcam onCapture={handleImageCapture} isUploading={isCapturing} />
+                  )}
                 </div>
               </TabsContent>
             </Tabs>
@@ -337,7 +503,11 @@ export default function Home() {
                 body: image.body,
                 createdAt: image.createdAt,
                 url: image.url ?? "",
-                generationStatus: image.generationStatus
+                generationStatus: image.generationStatus,
+                // Progressive Absurdity fields
+                generationCount: image.generationCount,
+                rootImageId: image.rootImageId,
+                absurdityLevel: image.absurdityLevel,
               }))}
               totalImages={generatedImages.length}
               currentPage={currentPage}
@@ -345,6 +515,8 @@ export default function Home() {
               onLoadMore={handleLoadMore}
               hasMore={displayedImages.length < generatedImages.length}
               isLoading={isLoadingMore}
+              onEscalate={handleEscalation}
+              showChainProgress={true}
             />
           </div>
         </div>

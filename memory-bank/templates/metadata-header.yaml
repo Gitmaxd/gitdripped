@@ -1,0 +1,107 @@
+---
+title: [Clear, Descriptive Title - What This Document Contains]
+category: [core|active|pattern|feature|technical]
+last_verified: YYYY-MM-DD
+version: X.Y
+dependencies: [related-file1.md, related-file2.md]
+---
+
+# Metadata Header Template
+
+## Field Descriptions
+
+### title (required)
+- Clear, descriptive title that explains the document's purpose
+- Should be readable as a standalone description
+- Use title case
+- Keep under 60 characters
+
+### category (required)
+Choose one:
+- `core`: Fundamental project information that rarely changes
+- `active`: Current development work and state
+- `pattern`: Reusable implementation patterns
+- `feature`: Completed feature documentation
+- `technical`: Technical learnings and solutions
+
+### last_verified (required)
+- Date the content was last verified as accurate
+- Format: YYYY-MM-DD
+- Update whenever content is reviewed, even if no changes made
+
+### version (required)
+- Semantic versioning: X.Y
+- X = major changes (breaking changes, complete rewrites)
+- Y = minor changes (additions, clarifications)
+- Start at 1.0
+
+### dependencies (required)
+- List of related files this document references or depends on
+- Use relative paths from memory-bank root
+- Include empty array [] if no dependencies
+- Maintain bidirectional links when possible
+
+## Examples
+
+### Core Document
+```yaml
+---
+title: Technical Architecture Overview
+category: core
+last_verified: 2024-03-15
+version: 2.1
+dependencies: [projectbrief.md, patterns/api-patterns.md, patterns/database-patterns.md]
+---
+```
+
+### Active Document
+```yaml
+---
+title: Current Sprint Tasks and Status
+category: active
+last_verified: 2024-03-15
+version: 1.0
+dependencies: [activeContext.md, roadmap.md]
+---
+```
+
+### Pattern Document
+```yaml
+---
+title: REST API Design Patterns
+category: pattern
+last_verified: 2024-03-15
+version: 1.3
+dependencies: [systemPatterns.md, features/user-api.md, technical/api-versioning.md]
+---
+```
+
+### Feature Document
+```yaml
+---
+title: User Authentication System
+category: feature
+last_verified: 2024-03-15
+version: 1.0
+dependencies: [patterns/auth-patterns.md, patterns/api-patterns.md, technical/jwt-implementation.md]
+---
+```
+
+### Technical Document
+```yaml
+---
+title: Database Migration Strategy
+category: technical
+last_verified: 2024-03-15
+version: 1.1
+dependencies: [core/techContext.md, patterns/database-patterns.md]
+---
+```
+
+## Best Practices
+
+1. **Always include all fields** - Even if dependencies is empty
+2. **Keep titles descriptive** - Someone should understand the content from title alone
+3. **Update version thoughtfully** - Minor edits don't need version bumps
+4. **Maintain dependencies** - Add bidirectional links where appropriate
+5. **Regular verification** - Update last_verified during maintenance

@@ -13,6 +13,7 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
+import type * as clearImages from "../clearImages.js";
 import type * as generate from "../generate.js";
 import type * as https from "../https.js";
 import type * as images from "../images.js";
@@ -26,6 +27,7 @@ import type * as images from "../images.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
+  clearImages: typeof clearImages;
   generate: typeof generate;
   https: typeof https;
   images: typeof images;

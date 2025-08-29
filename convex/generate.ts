@@ -4,6 +4,47 @@ import { internal, api } from "./_generated/api";
 import { GoogleGenAI } from "@google/genai";
 
 /**
+ * Progressive Absurdity Prompt Configuration
+ * Each level escalates the ridiculousness for maximum entertainment
+ */
+const ESCALATION_PROMPTS = [
+  {
+    level: 1,
+    prompt: "Add a subtle diamond chain necklace",
+    description: "Basic bling"
+  },
+  {
+    level: 2,
+    prompt: "Add a massive diamond chain, diamond grills if smiling, and diamond earrings",
+    description: "Getting dripped"
+  },
+  {
+    level: 3,
+    prompt: "Add multiple layered diamond chains, full diamond grills, sunglasses with diamonds, a crown, and diamond watches on both wrists",
+    description: "Seriously dripped out"
+  },
+  {
+    level: 4,
+    prompt: "Maximum bling: Add enormous stacked diamond chains, full diamond grills, diamond-encrusted sunglasses, a massive crown, cape made of gold chains, diamond gloves, and floating money symbols",
+    description: "Absolutely ridiculous"
+  },
+  {
+    level: 5,
+    prompt: "ULTIMATE CHAOS MODE: Transform into a diamond deity with chains for hair, diamonds for eyes, gold aura, floating crown, cape of pure light, diamond armor, levitating jewelry orbiting around, and explosion of wealth symbols in background",
+    description: "Peak absurdity achieved"
+  }
+];
+
+/**
+ * Get appropriate prompt based on generation count
+ * Caps at maximum absurdity level for consistency
+ */
+function getProgressivePrompt(generationCount: number): { prompt: string; description: string } {
+  const index = Math.min(generationCount - 1, ESCALATION_PROMPTS.length - 1);
+  return ESCALATION_PROMPTS[Math.max(0, index)];
+}
+
+/**
  * Helper function to convert ArrayBuffer to base64 (Convex-compatible)
  */
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -74,6 +115,34 @@ export const saveGeneratedImage = mutation({
 });
 
 /**
+ * Save progressive generated image with chain metadata
+ */
+export const saveProgressiveImage = mutation({
+  args: {
+    storageId: v.id("_storage"),
+    originalImageId: v.id("images"),
+    generationCount: v.number(),
+    rootImageId: v.string(),
+    promptUsed: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { storageId, originalImageId, generationCount, rootImageId, promptUsed } = args;
+
+    const generatedImageId = await ctx.db.insert("images", {
+      body: storageId,
+      createdAt: Date.now(),
+      isGenerated: true,
+      originalImageId: originalImageId,
+      generationCount,
+      rootImageId,
+      absurdityLevel: Math.min(generationCount, 5),
+      previousPrompt: promptUsed,
+    });
+    return generatedImageId;
+  },
+});
+
+/**
  * Schedule image generation (call this from your upload functions)
  */
 export const scheduleImageGeneration = mutation({
@@ -97,6 +166,58 @@ export const scheduleImageGeneration = mutation({
       originalImageId,
     });
 
+    return originalImageId;
+  },
+});
+
+/**
+ * Schedule progressive image generation with chain tracking
+ */
+export const scheduleProgressiveGeneration = mutation({
+  args: {
+    storageId: v.id("_storage"),
+    rootImageId: v.optional(v.string()),  // Track the chain root
+  },
+  handler: async (ctx, args) => {
+    const { storageId, rootImageId } = args;
+    
+    // Determine generation count and root
+    let generationCount = 1;
+    let actualRootId = rootImageId || null;
+    
+    if (rootImageId) {
+      // Query previous generations in this chain, find the highest absurdity level
+      const previousGenerations = await ctx.db
+        .query("images")
+        .withIndex("by_root_image", q => q.eq("rootImageId", rootImageId))
+        .collect();
+      
+      // Find the highest absurdity level in the chain
+      const maxLevel = previousGenerations.reduce((max, img) => 
+        Math.max(max, img.absurdityLevel || 0), 0);
+      
+      generationCount = maxLevel + 1;
+    }
+    
+    // Create pending record with generation tracking
+    const originalImageId = await ctx.db.insert("images", {
+      body: storageId,
+      createdAt: Date.now(),
+      isGenerated: false,
+      generationStatus: "pending",
+      generationCount,
+      rootImageId: actualRootId || storageId,  // Self-reference if first
+      absurdityLevel: rootImageId ? Math.min(generationCount, 5) : 0, // Original photo is level 0
+    });
+    
+    // Schedule with generation context
+    await ctx.scheduler.runAfter(0, internal.generate.generateProgressiveImage, {
+      storageId,
+      originalImageId,
+      generationCount,
+      rootImageId: actualRootId || originalImageId,
+    });
+    
     return originalImageId;
   },
 });
@@ -227,6 +348,148 @@ export const generateImage = internalAction({
         console.error(`[generateImage] Failed to update image status:`, updateError);
         // Even if status update fails, log the original error
         console.error(`[generateImage] Original generation error: ${errorMessage}`);
+      }
+    }
+  },
+});
+
+/**
+ * Progressive image generation action with escalating prompts
+ */
+export const generateProgressiveImage = internalAction({
+  args: {
+    storageId: v.id("_storage"),
+    originalImageId: v.id("images"),
+    generationCount: v.number(),
+    rootImageId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { storageId, originalImageId, generationCount, rootImageId } = args;
+
+    console.log(
+      `[generateProgressiveImage] Level ${generationCount} for rootId: ${rootImageId}, originalId: ${originalImageId}`
+    );
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY is not set");
+      await ctx.runMutation(api.generate.updateImageStatus, {
+        imageId: originalImageId,
+        status: "failed",
+        error: "API key not configured",
+      });
+      return;
+    }
+
+    try {
+      // Update status to processing
+      await ctx.runMutation(api.generate.updateImageStatus, {
+        imageId: originalImageId,
+        status: "processing",
+      });
+
+      // Get progressive prompt for this level
+      const promptConfig = getProgressivePrompt(generationCount);
+      const prompt = promptConfig.prompt;
+      
+      console.log(`[Progressive Generation] Level ${generationCount}: ${promptConfig.description} - ${prompt}`);
+
+      const ai = new GoogleGenAI({ apiKey });
+
+      // Get the URL from storage ID
+      const baseImageUrl = await ctx.storage.getUrl(storageId);
+      if (!baseImageUrl) {
+        throw new Error("Failed to get image URL from storage");
+      }
+
+      // Load the source image and encode as base64 for inlineData
+      const response = await fetch(baseImageUrl);
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch uploaded image from storage: ${response.statusText}`
+        );
+      }
+      const mimeType = response.headers.get("content-type") || "image/png";
+      const arrayBuffer = await response.arrayBuffer();
+      const base64Image = arrayBufferToBase64(arrayBuffer);
+
+      // Apply progressive prompt
+      const contents = [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType,
+            data: base64Image,
+          },
+        },
+      ];
+
+      const genResponse = await ai.models.generateContent({
+        model: "gemini-2.5-flash-image-preview",
+        contents,
+      });
+
+      const candidates = genResponse.candidates ?? [];
+      if (candidates.length === 0) {
+        throw new Error("Gemini returned no candidates");
+      }
+
+      // Find first inlineData part with image data
+      let b64Out: string | null = null;
+      const parts: Array<any> = candidates[0].content?.parts ?? [];
+      for (const part of parts) {
+        const inline = part.inlineData as { data?: string } | undefined;
+        if (inline?.data) {
+          b64Out = inline.data;
+          break;
+        }
+      }
+      if (!b64Out) {
+        throw new Error("Gemini response did not include image data");
+      }
+
+      // Convert base64 to Uint8Array and store in Convex storage
+      const imageBuffer = base64ToUint8Array(b64Out);
+      const imageBlob = new Blob([imageBuffer as BlobPart], { type: "image/png" });
+      const generatedStorageId = await ctx.storage.store(imageBlob);
+      const url = await ctx.storage.getUrl(generatedStorageId);
+
+      if (!url) {
+        throw new Error("Failed to get storage URL after upload");
+      }
+
+      // Save with progressive metadata
+      await ctx.runMutation(api.generate.saveProgressiveImage, {
+        storageId: generatedStorageId,
+        originalImageId,
+        generationCount,
+        rootImageId,
+        promptUsed: prompt,
+      });
+
+      // Mark original as completed
+      await ctx.runMutation(api.generate.updateImageStatus, {
+        imageId: originalImageId,
+        status: "completed",
+      });
+
+      console.log(`[generateProgressiveImage] Successfully generated level ${generationCount} for rootId: ${rootImageId}`);
+
+    } catch (error) {
+      console.error(`[generateProgressiveImage] Failed to generate level ${generationCount}:`, error);
+
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred during progressive generation';
+
+      try {
+        await ctx.runMutation(api.generate.updateImageStatus, {
+          imageId: originalImageId,
+          status: "failed",
+          error: errorMessage
+        });
+        console.log(`[generateProgressiveImage] Marked level ${generationCount} as failed: ${errorMessage}`);
+      } catch (updateError) {
+        console.error(`[generateProgressiveImage] Failed to update status:`, updateError);
+        console.error(`[generateProgressiveImage] Original error: ${errorMessage}`);
       }
     }
   },
