@@ -1,5 +1,6 @@
 import { Button } from "./ui/button";
 import { useState, useEffect } from "react";
+import FakePaywall from "./FakePaywall";
 
 
 
@@ -44,6 +45,8 @@ export default function ImagePreview({
   void currentPage;
   void imagesPerPage;
   const [escalatingImages, setEscalatingImages] = useState<Set<string>>(new Set());
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [pendingEscalation, setPendingEscalation] = useState<UploadedImage | null>(null);
 
   // Only show uploaded images (captured images are now uploaded automatically)
   const allImages = uploadedImages.map((img, index) => ({
@@ -51,6 +54,9 @@ export default function ImagePreview({
     data: img,
     index
   }));
+
+  // Check if user has achieved Level 5 (maximum chaos) - for the finale card
+  const hasLevel5Image = uploadedImages.some(img => img.absurdityLevel === 5);
 
   // Helper function to check if an image has already been escalated
   const hasBeenEscalated = (image: UploadedImage): boolean => {
@@ -66,15 +72,36 @@ export default function ImagePreview({
     return higherLevelExists;
   };
 
-  // Handler for escalation with immediate feedback
+  // Handler for escalation with paywall check
   const handleEscalate = (image: UploadedImage) => {
     if (!onEscalate) return;
     
+    // Check if this is Level 2 trying to go to Level 3 - show fake paywall!
+    if (image.absurdityLevel === 2) {
+      setPendingEscalation(image);
+      setShowPaywall(true);
+      return;
+    }
+    
+    // For other levels, proceed normally
     // Add to escalating set immediately
     setEscalatingImages(prev => new Set(prev).add(image._id));
     
     // Call the original escalate function
     onEscalate(image);
+  };
+
+  // Handler for paywall dismissal
+  const handlePaywallClose = () => {
+    setShowPaywall(false);
+    
+    // Proceed with the escalation after "paying"
+    if (pendingEscalation && onEscalate) {
+      setEscalatingImages(prev => new Set(prev).add(pendingEscalation._id));
+      onEscalate(pendingEscalation);
+    }
+    
+    setPendingEscalation(null);
   };
 
   // Check if an image is currently being escalated
@@ -106,9 +133,9 @@ export default function ImagePreview({
 
   if (allImages.length === 0 && !isLoading) {
     return (
-      <div className="flex items-center justify-center h-64 border-2 border-dashed border-accent/30 bg-muted/50 rounded-lg">
+      <div className="flex items-center justify-center min-h-64 p-6 border-2 border-dashed border-accent/30 bg-muted/50 rounded-lg">
         <div className="text-center text-muted-foreground">
-          <div className="text-6xl mb-4">🎨</div>
+          <div className="text-6xl mb-4">🚀</div>
           <p className="text-lg font-medium mb-2">Ready for the Absurdity Journey!</p>
           <p className="text-sm">Upload or capture an image to start your 5-level transformation adventure</p>
           <div className="mt-4 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg p-3 text-xs">
@@ -230,7 +257,7 @@ export default function ImagePreview({
                     <div className="text-xs text-center font-medium text-muted-foreground">
                       {image.data.absurdityLevel === 5 
                         ? '👑 MAXIMUM CHAOS ACHIEVED!' 
-                        : ['', '✨ Getting Dripped', '💎 Seriously Dripped Out', '🔥 Absolutely Ridiculous', '👑 PEAK ABSURDITY!'][image.data.absurdityLevel]
+                        : ['', '✨ Getting Dripped', '💎 Seriously Dripped', '🔥 Absolutely Ridiculous', '👑 PEAK ABSURDITY'][image.data.absurdityLevel]
                       }
                     </div>
                   </div>
@@ -259,7 +286,7 @@ export default function ImagePreview({
                   <div className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white font-bold py-2 px-4 rounded-lg text-center">
                     <div className="flex items-center justify-center gap-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                      <span>🚀 BOOSTING TO LEVEL {image.data.absurdityLevel + 1}!</span>
+                      <span>⚡ Level {image.data.absurdityLevel + 1} Starting!</span>
                       <span className="animate-pulse">⚡</span>
                     </div>
                   </div>
@@ -286,6 +313,89 @@ export default function ImagePreview({
             </div>
           </div>
         ))}
+
+        {/* 🎉 FINALE SELF-PROMOTION CARD - Appears after Level 5 achievement! */}
+        {hasLevel5Image && (
+          <div className="group">
+            <div className="bg-card border border-border hover:border-accent transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl overflow-hidden">
+              
+              {/* Compact Header with Celebration */}
+              <div className="relative bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 p-3">
+                <div className="absolute inset-0 overflow-hidden">
+                  <div className="absolute top-1 left-2 w-2 h-2 bg-white rounded-full animate-bounce"></div>
+                  <div className="absolute top-1 right-4 w-1 h-1 bg-yellow-300 rounded-full animate-bounce delay-100"></div>
+                </div>
+                <div className="relative z-10 text-center">
+                  <div className="text-xl font-bold text-white mb-1">
+                    🎉 MAXIMUM CHAOS! 🎉
+                  </div>
+                  <div className="text-xs font-semibold text-black bg-white/90 rounded-full px-2 py-1">
+                    Level 5 Champion!
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Content - Matches image card aspect ratio */}
+              <div className="aspect-square relative overflow-hidden bg-gradient-to-br from-purple-900/90 to-black/90 flex items-center justify-center p-4">
+                <div className="text-center space-y-3">
+                  
+                  {/* Compact Profile */}
+                  <div className="relative mx-auto">
+                    <div className="w-16 h-16 rounded-full border-3 border-yellow-400 overflow-hidden mx-auto shadow-lg">
+                      <img
+                        src="/profile.jpg"
+                        alt="@gitmaxd"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 24 24' fill='%23fbbf24'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z'/%3E%3C/svg%3E";
+                        }}
+                      />
+                    </div>
+                    <div className="absolute -top-1 -right-1 text-lg animate-bounce">🚀</div>
+                  </div>
+
+                  {/* Compact Message */}
+                  <div className="space-y-2">
+                    <p className="text-yellow-400 font-bold text-base leading-tight">
+                      Had fun? Let's go! 🚀
+                    </p>
+                    <div className="text-xs text-purple-200 leading-tight">
+                      <div>Follow <span className="font-bold text-blue-400">@gitmaxd</span></div>
+                      <div>for more AI chaos!</div>
+                    </div>
+                  </div>
+
+                  {/* Compact CTA Button */}
+                  <a
+                    href="https://x.com/gitmaxd"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-full text-xs shadow-md hover:shadow-lg transform hover:scale-105 active:scale-95 transition-all duration-200"
+                  >
+                    <span>𝕏</span>
+                    <span>Follow</span>
+                    <span className="animate-pulse">✨</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Compact Bottom Section */}
+              <div className="p-3 space-y-2 bg-gradient-to-r from-muted/50 to-muted/30">
+                <div className="text-center">
+                  <div className="text-xs font-medium text-muted-foreground mb-1">CREATOR</div>
+                  <div className="w-full bg-muted rounded-full h-2">
+                    <div className="h-2 rounded-full bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 w-full animate-pulse"></div>
+                  </div>
+                  <div className="text-xs font-bold text-center text-yellow-600 mt-1">
+                    Thanks for playing! 🏆
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Load More Button */}
@@ -308,6 +418,9 @@ export default function ImagePreview({
           </Button>
         </div>
       )}
+
+      {/* Fake Paywall Dialog */}
+      <FakePaywall isOpen={showPaywall} onClose={handlePaywallClose} />
     </div>
   )
 }

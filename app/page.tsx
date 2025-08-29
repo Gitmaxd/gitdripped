@@ -1,14 +1,13 @@
 "use client";
 import ConvexFloatingBubble from "@/components/ConvexFloatingBubble";
 import ImagePreview from "@/components/ImagePreview";
+import HallOfFame from "@/components/HallOfFame";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Webcam from "@/components/Webcam";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { GithubIcon } from "lucide-react";
 import Link from "next/link";
@@ -37,15 +36,13 @@ export default function Home() {
   // Image generation scheduling mutations
   const scheduleProgressiveGeneration = useMutation(api.generate.scheduleProgressiveGeneration);
 
-  const imageInput = useRef<HTMLInputElement>(null);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const images = useQuery(api.images.getImages) || [];
   const imageCount = useQuery(api.images.getImageCount) || 0;
   console.log('🔵 [DEBUG] Images from Convex:', images.length, 'images loaded', 'Total count:', imageCount);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [mainView, setMainView] = useState<'journey' | 'hall-of-fame'>('journey');
 
   // Pagination state for infinite scroll
   const [displayedImages, setDisplayedImages] = useState<ImageObject[]>([]);
@@ -177,11 +174,11 @@ export default function Home() {
       const nextLevel = image.absurdityLevel + 1;
       const levelNames = ["", "✨ Getting Dripped", "💎 Seriously Dripped", "🔥 Absolutely Ridiculous", "👑 PEAK ABSURDITY", "🌟 MAXIMUM CHAOS"];
       
-      toast.success(`🚀 ESCALATING TO ${levelNames[nextLevel]}!`, {
-        description: `Level ${nextLevel} transformation in progress! ${nextLevel === 5 ? 'Prepare for ULTIMATE CHAOS!' : 'Watch the image transform and keep going!'}`,
-        duration: 8000,
+      toast.success(`⚡ Level ${nextLevel} Starting!`, {
+        description: `${levelNames[nextLevel]} transformation in progress. ${nextLevel === 5 ? 'This is the final level!' : 'Keep escalating for more chaos!'}`,
+        duration: 6000,
         action: {
-          label: nextLevel === 5 ? "WITNESS THE CHAOS! 👑" : "🎮 SEE PROGRESS",
+          label: nextLevel === 5 ? "🏆 Final Level!" : "👀 Watch Progress",
           onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' })
         }
       });
@@ -267,11 +264,11 @@ export default function Home() {
         console.log("🔵 [DEBUG] Progressive generation scheduled successfully! Result:", result);
 
         // Show engaging success toast
-        toast.success("🚀 ABSURDITY JOURNEY BEGINS!", {
-          description: "Level 1 in progress! Click 'GET MORE RIDICULOUS' to escalate through 5 levels of chaos!",
-          duration: 8000,
+        toast.success("🎉 Transformation Started!", {
+          description: "Level 1 generation in progress. Watch your absurdity journey unfold!",
+          duration: 5000,
           action: {
-            label: "See the Magic ✨",
+            label: "🚀 View Progress",
             onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' })
           }
         });
@@ -308,116 +305,29 @@ export default function Home() {
     }
   };
 
-  const handleSendImage = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!selectedImage) return;
-
-    // Check if user has reached maximum absurdity (Level 5)
-    if (imageCount >= 5) {
-      toast.error("Maximum Chaos Achieved! 👑", {
-        description: "You've reached Level 5 - the ultimate absurdity! Your journey is complete!",
-        duration: 6000,
-        action: {
-          label: "View Gallery", 
-          onClick: () => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
-        }
-      });
-      return;
-    }
-
-    setIsUploading(true);
-
-    try {
-      // Step 1: Get an upload URL from Convex
-      const uploadUrl = await generateUploadUrl();
-
-      // Step 2: Upload the file to the generated URL
-      const result = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": selectedImage.type },
-        body: selectedImage,
-      });
-
-      if (!result.ok) {
-        throw new Error(`Upload failed: ${result.statusText}`);
-      }
-
-      const { storageId } = await result.json();
-
-      // Step 3: Schedule progressive generation (starts at level 1)
-      setIsGenerating(true);
-      try {
-        await scheduleProgressiveGeneration({ storageId });
-        console.log("Progressive generation scheduled successfully!");
-
-        // Show engaging success toast
-        toast.success("🚀 ABSURDITY JOURNEY BEGINS!", {
-          description: "Level 1 in progress! Click 'GET MORE RIDICULOUS' to escalate through 5 levels of chaos!",
-          duration: 8000,
-          action: {
-            label: "See the Magic ✨",
-            onClick: () => window.scrollTo({ top: 0, behavior: 'smooth' })
-          }
-        });
-      } catch (genError) {
-        console.error("Failed to schedule image generation:", genError);
-
-        // Show appropriate toast based on error type
-        if (isQuotaError(genError)) {
-          toast.error("Gemini API Quota Exceeded", {
-            description: "You've reached your daily/monthly limit. Try again later or upgrade your plan.",
-            duration: 8000,
-            action: {
-              label: "Learn More",
-              onClick: () => window.open("https://ai.google.dev/gemini-api/docs/rate-limits", "_blank"),
-            },
-          });
-        } else {
-          toast.error("Failed to Start Generation", {
-            description: "Failed to schedule image generation. Please try again.",
-            duration: 5000,
-          });
-        }
-      } finally {
-        setIsGenerating(false);
-      }
-
-      // Reset the form
-      setSelectedImage(null);
-      imageInput.current!.value = "";
-
-    } catch (error) {
-      console.error("Upload failed:", error);
-      // You could add error handling UI here
-    } finally {
-      setIsUploading(false);
-    }
-  }
+  // Removed upload functionality to optimize for viewport fit
 
   return (
-    <div className="flex flex-col w-full min-h-screen p-4 lg:p-6">
-      <div className="flex flex-col items-start justify-start gap-2 w-full">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold">Git Dripped</h1>
-          <Link
-            href="https://github.com/michaelshimeles/drip-me-out"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="View source code on GitHub"
-          >
-            <Button variant="ghost" size="icon">
-              <GithubIcon />
-            </Button>
-          </Link>
-        </div>
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">
-            📸 Snap a photo and watch yourself transform into a diamond deity through 5 levels of pure chaos!
-          </p>
+    <div className="flex flex-col w-full h-screen overflow-hidden">
+      {/* Compact Header */}
+      <div className="flex-shrink-0 p-2 border-b border-border">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg sm:text-xl font-semibold">Git Dripped</h1>
+            <Link
+              href="https://github.com/michaelshimeles/drip-me-out"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Button variant="ghost" size="sm">
+                <GithubIcon className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
           
-          {/* Image Limit Status */}
-          <div className={`text-xs font-medium px-3 py-1 rounded-full inline-block ${
+          {/* Status Indicator */}
+          <div className={`text-xs font-medium px-2 py-1 rounded-full ${
             imageCount >= 5 
               ? 'bg-red-100 text-red-800 border border-red-200' 
               : imageCount >= 3 
@@ -425,115 +335,104 @@ export default function Home() {
                 : 'bg-green-100 text-green-800 border border-green-200'
           }`}>
             {imageCount >= 5 
-              ? '🚫 Maximum Chaos Reached (Level 5)' 
-              : `✨ Level ${imageCount}/5 progression`
+              ? '🚫 Level 5' 
+              : `✨ ${imageCount}/5`
             }
           </div>
         </div>
       </div>
-      {/** Image upload or open camera */}
-      <div className="w-full mt-6 sm:mt-8 lg:mt-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-          {/* Camera/Upload Section */}
-          <div className="lg:max-w-2xl w-full">
-            <Tabs defaultValue="camera">
-              <TabsList>
-                <TabsTrigger value="camera" className="text-sm font-medium">📸 Camera</TabsTrigger>
-                {/* <TabsTrigger value="upload" className="text-sm font-medium">📤 Upload</TabsTrigger> */}
-              </TabsList>
-              <TabsContent value="upload" className="mt-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Upload Image</CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex-1 flex flex-col justify-center">
-                    {imageCount >= 5 ? (
-                      <div className="text-center p-6 bg-red-50 border border-red-200 rounded-lg">
-                        <div className="text-4xl mb-2">👑</div>
-                        <h3 className="font-bold text-red-800 mb-1">Maximum Chaos Achieved!</h3>
-                        <p className="text-sm text-red-600">You&apos;ve reached Level 5 - the ultimate absurdity! Your journey is complete!</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          ref={imageInput}
-                          onChange={(event) => setSelectedImage(event.target.files![0])}
-                          disabled={selectedImage !== null}
-                          className="w-full"
-                        />
-                        <Button
-                          type="submit"
-                          onClick={handleSendImage}
-                          size="sm"
-                          variant="outline"
-                          className="w-full h-11"
-                          disabled={isUploading || isGenerating || !selectedImage}
-                        >
-                          {isUploading ? "Uploading..." : isGenerating ? "Generating..." : "Upload & Generate"}
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-              <TabsContent value="camera" className="mt-4">
-                <div className="w-full">
-                  {imageCount >= 5 ? (
-                    <div className="text-center p-8 bg-red-50 border border-red-200 rounded-lg">
-                      <div className="text-6xl mb-4">👑</div>
-                      <h3 className="text-xl font-bold text-red-800 mb-2">Maximum Chaos Achieved!</h3>
-                      <p className="text-red-600 mb-4">You&apos;ve reached Level 5 - the ultimate absurdity! Your journey is complete!</p>
+      
+      {/* Main Navigation */}
+      <div className="flex-shrink-0 p-2">
+        <Tabs value={mainView} onValueChange={(value) => setMainView(value as 'journey' | 'hall-of-fame')} className="w-full max-w-md mx-auto">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="journey" className="text-sm font-medium">🚀 Your Journey</TabsTrigger>
+            <TabsTrigger value="hall-of-fame" className="text-sm font-medium">🏆 Hall of Fame</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Content Area - Flex-1 to fill remaining space */}
+      <div className="flex-1 overflow-hidden">
+        {mainView === 'journey' && (
+          <div className="h-full flex flex-col lg:flex-row gap-2 p-2">
+            {/* Camera/Upload Section */}
+            <div className="w-full lg:w-1/2 flex-shrink-0">
+              <div className="h-full flex flex-col">
+                <Tabs defaultValue="camera" className="flex-1 flex flex-col">
+                  <TabsList className="flex-shrink-0">
+                    <TabsTrigger value="camera" className="text-sm font-medium">📸 Camera</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="camera" className="flex-1 overflow-hidden">
+                    <div className="h-full">
+                      {imageCount >= 5 ? (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="text-center p-4 bg-red-50 border border-red-200 rounded-lg">
+                            <div className="text-4xl mb-2">👑</div>
+                            <h3 className="text-lg font-bold text-red-800 mb-1">Maximum Chaos Achieved!</h3>
+                            <p className="text-sm text-red-600">Level 5 complete!</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <Webcam onCapture={handleImageCapture} isUploading={isCapturing} />
+                      )}
                     </div>
-                  ) : (
-                    <Webcam onCapture={handleImageCapture} isUploading={isCapturing} />
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          {/* Image Preview Section */}
-          <div className="w-full">
-            <ImagePreview
-              images={[]}
-              uploadedImages={displayedImages.map(image => ({
-                _id: image._id,
-                body: image.body,
-                createdAt: image.createdAt,
-                url: image.url ?? "",
-                generationStatus: image.generationStatus,
-                // Progressive Absurdity fields
-                generationCount: image.generationCount,
-                rootImageId: image.rootImageId,
-                absurdityLevel: image.absurdityLevel,
-              }))}
-              totalImages={generatedImages.length}
-              currentPage={currentPage}
-              imagesPerPage={IMAGES_PER_PAGE}
-              onLoadMore={handleLoadMore}
-              hasMore={displayedImages.length < generatedImages.length}
-              isLoading={isLoadingMore}
-              onEscalate={handleEscalation}
-              showChainProgress={true}
-            />
-          </div>
-        </div>
-
-        {/* Mobile-optimized generating indicator */}
-        {hasActiveGenerations && (
-          <div className="fixed bottom-4 right-4 lg:top-6 lg:right-6 z-50">
-            <div className="flex items-center gap-2 bg-card/95 backdrop-blur-sm border border-border rounded-lg px-3 py-2 shadow-lg">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-accent"></div>
-              <span className="text-sm text-muted-foreground font-medium">Generating...</span>
+                  </TabsContent>
+                </Tabs>
+              </div>
             </div>
+
+            {/* Image Preview Section */}
+            <div className="w-full lg:w-1/2 overflow-hidden">
+              <div className="h-full overflow-y-auto">
+                <ImagePreview
+                  images={[]}
+                  uploadedImages={displayedImages.map(image => ({
+                    _id: image._id,
+                    body: image.body,
+                    createdAt: image.createdAt,
+                    url: image.url ?? "",
+                    generationStatus: image.generationStatus,
+                    // Progressive Absurdity fields
+                    generationCount: image.generationCount,
+                    rootImageId: image.rootImageId,
+                    absurdityLevel: image.absurdityLevel,
+                  }))}
+                  totalImages={generatedImages.length}
+                  currentPage={currentPage}
+                  imagesPerPage={IMAGES_PER_PAGE}
+                  onLoadMore={handleLoadMore}
+                  hasMore={displayedImages.length < generatedImages.length}
+                  isLoading={isLoadingMore}
+                  onEscalate={handleEscalation}
+                  showChainProgress={true}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {mainView === 'hall-of-fame' && (
+          <div className="h-full overflow-y-auto">
+            <HallOfFame />
           </div>
         )}
       </div>
 
-      {/* Floating Convex Showcase Bubble */}
-      <ConvexFloatingBubble />
+      {/* Mobile-optimized generating indicator */}
+      {hasActiveGenerations && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <div className="flex items-center gap-2 bg-card/95 backdrop-blur-sm border border-border rounded-lg px-3 py-2 shadow-lg">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-accent"></div>
+            <span className="text-sm text-muted-foreground font-medium">Generating...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Convex Showcase Bubble - Positioned absolutely */}
+      <div className="absolute bottom-4 left-4 z-40">
+        <ConvexFloatingBubble />
+      </div>
     </div>
   );
 }

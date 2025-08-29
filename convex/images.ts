@@ -86,3 +86,75 @@ export const getImageCount = query({
     return maxLevel;
   },
 });
+
+export const getHallOfFameImages = query({
+  handler: async (ctx) => {
+    // Get all images
+    const images = await ctx.db.query("images").order("desc").collect();
+    
+    // Group images by rootImageId to find each user's journey
+    const rootImageGroups = new Map<string, any[]>();
+    
+    images.forEach(img => {
+      const rootId = img.rootImageId || img._id;
+      if (!rootImageGroups.has(rootId)) {
+        rootImageGroups.set(rootId, []);
+      }
+      rootImageGroups.get(rootId)!.push(img);
+    });
+    
+    // Find the highest level image for each root (user journey)
+    const championImages = [];
+    
+    for (const [rootId, groupImages] of rootImageGroups.entries()) {
+      // Find the image with the highest absurdity level in this group
+      const champion = groupImages.reduce((highest, current) => {
+        const currentLevel = current.absurdityLevel || 0;
+        const highestLevel = highest.absurdityLevel || 0;
+        
+        // If levels are equal, prefer the most recent one
+        if (currentLevel > highestLevel || 
+            (currentLevel === highestLevel && current.createdAt > highest.createdAt)) {
+          return current;
+        }
+        return highest;
+      });
+      
+      // Only include if it has some level of absurdity (generated images)
+      if (champion.absurdityLevel && champion.absurdityLevel > 0) {
+        championImages.push(champion);
+      }
+    }
+    
+    // Sort by vote count (highest first), then by absurdity level, then by creation date
+    championImages.sort((a, b) => {
+      const votesA = a.voteCount || 0;
+      const votesB = b.voteCount || 0;
+      
+      if (votesA !== votesB) {
+        return votesB - votesA; // Highest votes first
+      }
+      
+      const levelA = a.absurdityLevel || 0;
+      const levelB = b.absurdityLevel || 0;
+      
+      if (levelA !== levelB) {
+        return levelB - levelA; // Highest level first
+      }
+      
+      return b.createdAt - a.createdAt; // Most recent first for same level and votes
+    });
+    
+    // Generate URLs for the champion images
+    const championsWithUrls = await Promise.all(
+      championImages.map(async (image, index) => ({
+        ...image,
+        url: await ctx.storage.getUrl(image.body),
+        rank: index + 1, // Add ranking based on vote-sorted order
+        voteCount: image.voteCount || 0,
+      }))
+    );
+    
+    return championsWithUrls;
+  },
+});

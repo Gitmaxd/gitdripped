@@ -17,6 +17,7 @@ import type * as clearImages from "../clearImages.js";
 import type * as generate from "../generate.js";
 import type * as https from "../https.js";
 import type * as images from "../images.js";
+import type * as votes from "../votes.js";
 
 /**
  * A utility for referencing Convex functions in your app's API.
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   generate: typeof generate;
   https: typeof https;
   images: typeof images;
+  votes: typeof votes;
 }>;
 export declare const api: FilterApi<
   typeof fullApi,

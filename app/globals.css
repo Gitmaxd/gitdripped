@@ -134,3 +134,36 @@
 .animate-shimmer {
   animation: shimmer 2s infinite;
 }
+
+/* Toast contrast improvements */
+[data-sonner-toast] {
+  background: rgba(0, 0, 0, 0.9) !important;
+  color: white !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+[data-sonner-toast][data-type="success"] {
+  background: rgba(34, 197, 94, 0.95) !important;
+  color: white !important;
+  border: 1px solid rgba(34, 197, 94, 0.3) !important;
+}
+
+[data-sonner-toast] [data-title] {
+  color: white !important;
+  font-weight: 600 !important;
+}
+
+[data-sonner-toast] [data-description] {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+[data-sonner-toast] [data-button] {
+  background: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  font-weight: 500 !important;
+}
+
+[data-sonner-toast] [data-button]:hover {
+  background: rgba(255, 255, 255, 0.3) !important;
+}
