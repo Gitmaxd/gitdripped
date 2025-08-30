@@ -73,7 +73,7 @@ export default function ImagePreview({
   const hasLevel5Image = uploadedImages.some(img => img.absurdityLevel === 5);
 
   // Timer management constants
-  const WAIT_TIME_MS = 260000; // 4:20 (4 minutes 20 seconds)
+  const WAIT_TIME_MS = 10000; // 10 seconds for testing
   const STORAGE_KEY = 'gitdripped-wait-timers';
   const TIMERS_STARTED_KEY = 'gitdripped-timers-started';
 
@@ -140,12 +140,6 @@ export default function ImagePreview({
         
         if (hasExpired) {
           setWaitingImages(activeTimers);
-          // Also clean up expired timers from timersStarted
-          setTimersStarted(prev => {
-            const updated = new Set(prev);
-            newlyCompleted.forEach(id => updated.delete(id));
-            return updated;
-          });
         }
         
         // Mark newly completed timers for celebration display
@@ -302,7 +296,6 @@ export default function ImagePreview({
       if ((image.absurdityLevel === 3 || image.absurdityLevel === 4) && 
           !timersStarted.has(image._id)) {
         
-        console.log(`🎯 Starting wait timer for Level ${image.absurdityLevel} image:`, image._id);
         startWaitTimer(image._id);
         setTimersStarted(prev => new Set(prev).add(image._id));
       }

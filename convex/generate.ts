@@ -10,27 +10,27 @@ import { GoogleGenAI } from "@google/genai";
 const ESCALATION_PROMPTS = [
   {
     level: 1,
-    prompt: "IMPORTANT: Maintain the person's identity, facial features, and gender characteristics throughout. Apply gender-appropriate styling - for women use elegant, delicate jewelry (graceful chains, feminine earrings); for men use bold, masculine accessories (heavy chains, masculine styling). Now add: a subtle diamond chain necklace that suits their gender and style.",
+    prompt: "IMPORTANT: Maintain the person's identity, facial features, and gender characteristics throughout. SMILE DETECTION: If the person is smiling or showing teeth, keep their smile and positive expression. If the person is NOT smiling or showing teeth, give them a serious 'mean mug' expression with a stern, intimidating look. Apply gender-appropriate styling - for women use elegant, delicate jewelry (graceful chains, feminine earrings); for men use bold, masculine accessories (heavy chains, masculine styling). Now add: a subtle diamond chain necklace that suits their gender and style.",
     description: "Basic bling"
   },
   {
     level: 2,
-    prompt: "IMPORTANT: Maintain the person's identity and gender characteristics. Apply gender-appropriate styling - for women use elegant jewelry (delicate layered chains, feminine diamond earrings, graceful styling); for men use masculine accessories (heavy diamond chains, bold earrings if appropriate, masculine styling). Now add: a massive diamond chain, diamond grills if smiling, and diamond earrings that match their gender presentation.",
+    prompt: "IMPORTANT: Maintain the person's identity and gender characteristics. SMILE DETECTION: If the person is smiling or showing teeth, add diamond grills and keep their happy expression. If the person is NOT smiling or showing teeth, give them a more intense 'mean mug' expression with a serious, intimidating look - NO grills for non-smiling faces. Apply gender-appropriate styling - for women use elegant jewelry (delicate layered chains, feminine diamond earrings, graceful styling); for men use masculine accessories (heavy diamond chains, bold earrings if appropriate, masculine styling). Now add: a massive diamond chain and diamond earrings that match their gender presentation.",
     description: "Getting dripped"
   },
   {
     level: 3,
-    prompt: "IMPORTANT: Maintain the person's identity and gender characteristics. Apply gender-appropriate styling - for women use elegant accessories (layered delicate chains, feminine diamond sunglasses, tiara or elegant crown, delicate watches); for men use masculine accessories (heavy layered chains, masculine diamond sunglasses, bold crown, masculine watches). Now add: multiple layered diamond chains, full diamond grills, sunglasses with diamonds, a crown, and diamond watches on both wrists - all styled appropriately for their gender.",
+    prompt: "IMPORTANT: Maintain the person's identity and gender characteristics. SMILE DETECTION: If the person is smiling or showing teeth, add full diamond grills and maintain their joyful expression. If the person is NOT smiling or showing teeth, intensify their 'mean mug' with a fierce, intimidating stare - NO grills for non-smiling faces. Apply gender-appropriate styling - for women use elegant accessories (layered delicate chains, feminine diamond sunglasses, tiara or elegant crown, delicate watches); for men use masculine accessories (heavy layered chains, masculine diamond sunglasses, bold crown, masculine watches). Now add: multiple layered diamond chains, sunglasses with diamonds, a crown, and diamond watches on both wrists - all styled appropriately for their gender.",
     description: "Seriously dripped out"
   },
   {
     level: 4,
-    prompt: "IMPORTANT: Maintain the person's identity and gender characteristics. Apply gender-appropriate styling - for women use maximum elegant accessories (stacked delicate chains, feminine diamond sunglasses, elegant crown/tiara, flowing fabric cape that drapes behind them, delicate gloves); for men use maximum masculine accessories (enormous heavy chains, masculine diamond sunglasses, bold crown, flowing fabric cape that hangs behind their shoulders, masculine gloves). Now add: Maximum bling with enormous stacked diamond chains, full diamond grills, diamond-encrusted sunglasses, a massive crown, a flowing fabric cape made of gold chains that clearly hangs behind the person (NOT wings), diamond gloves, and floating money symbols - all styled for their gender.",
+    prompt: "IMPORTANT: Maintain the person's identity and gender characteristics. SMILE DETECTION: If the person is smiling or showing teeth, add maximum diamond grills and keep their triumphant expression. If the person is NOT smiling or showing teeth, give them the ultimate 'mean mug' with a menacing, powerful stare - NO grills for non-smiling faces. Apply gender-appropriate styling - for women use maximum elegant accessories (stacked delicate chains, feminine diamond sunglasses, elegant crown/tiara, flowing fabric cape that drapes behind them, delicate gloves); for men use maximum masculine accessories (enormous heavy chains, masculine diamond sunglasses, bold crown, flowing fabric cape that hangs behind their shoulders, masculine gloves). Now add: Maximum bling with enormous stacked diamond chains, diamond-encrusted sunglasses, a massive crown, a flowing fabric cape made of gold chains that clearly hangs behind the person (NOT wings), diamond gloves, and floating money symbols - all styled for their gender.",
     description: "Absolutely ridiculous"
   },
   {
     level: 5,
-    prompt: "ULTIMATE CHAOS MODE: Maintain the person's core identity and gender characteristics while transforming them into a diamond deity. For women: elegant divine transformation with graceful diamond chains for hair, sparkling diamond eyes, golden aura, floating tiara/crown, flowing luminous fabric cape that drapes behind them (NOT wings), elegant diamond armor, delicately orbiting jewelry. For men: powerful divine transformation with bold diamond chains for hair, blazing diamond eyes, golden aura, floating crown, flowing luminous fabric cape that hangs behind their back (NOT wings), strong diamond armor, boldly orbiting jewelry. Add explosion of wealth symbols in background that matches their gender presentation. IMPORTANT: The cape must be clearly a fabric cape hanging behind the person, never wing-like appendages.",
+    prompt: "ULTIMATE CHAOS MODE: Maintain the person's core identity and gender characteristics while transforming them into a diamond deity. SMILE DETECTION: If the person is smiling or showing teeth, give them divine diamond grills that sparkle with godlike power and maintain their victorious expression. If the person is NOT smiling or showing teeth, transform them into a fierce deity with an intimidating divine stare - NO grills for non-smiling divine beings. For women: elegant divine transformation with graceful diamond chains for hair, sparkling diamond eyes, golden aura, floating tiara/crown, flowing luminous fabric cape that drapes behind them (NOT wings), elegant diamond armor, delicately orbiting jewelry. For men: powerful divine transformation with bold diamond chains for hair, blazing diamond eyes, golden aura, floating crown, flowing luminous fabric cape that hangs behind their back (NOT wings), strong diamond armor, boldly orbiting jewelry. Add explosion of wealth symbols in background that matches their gender presentation. IMPORTANT: The cape must be clearly a fabric cape hanging behind the person, never wing-like appendages.",
     description: "Peak absurdity achieved"
   }
 ];
@@ -230,9 +230,6 @@ export const generateImage = internalAction({
   handler: async (ctx, args) => {
     const { storageId, originalImageId } = args;
 
-    console.log(
-      `[generateImage] Using Gemini 2.5 Flash Image Preview with storageId: ${storageId}, originalImageId: ${originalImageId}`
-    );
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -329,7 +326,6 @@ export const generateImage = internalAction({
         status: "completed",
       });
 
-      console.log(`[generateImage] Successfully generated image for originalImageId: ${originalImageId}`);
 
     } catch (error) {
       console.error(`[generateImage] Failed to generate image:`, error);
@@ -343,7 +339,6 @@ export const generateImage = internalAction({
           status: "failed",
           error: errorMessage
         });
-        console.log(`[generateImage] Marked image ${originalImageId} as failed: ${errorMessage}`);
       } catch (updateError) {
         console.error(`[generateImage] Failed to update image status:`, updateError);
         // Even if status update fails, log the original error
@@ -366,9 +361,6 @@ export const generateProgressiveImage = internalAction({
   handler: async (ctx, args) => {
     const { storageId, originalImageId, generationCount, rootImageId } = args;
 
-    console.log(
-      `[generateProgressiveImage] Level ${generationCount} for rootId: ${rootImageId}, originalId: ${originalImageId}`
-    );
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
@@ -392,7 +384,6 @@ export const generateProgressiveImage = internalAction({
       const promptConfig = getProgressivePrompt(generationCount);
       const prompt = promptConfig.prompt;
       
-      console.log(`[Progressive Generation] Level ${generationCount}: ${promptConfig.description} - ${prompt}`);
 
       const ai = new GoogleGenAI({ apiKey });
 
@@ -473,7 +464,6 @@ export const generateProgressiveImage = internalAction({
         status: "completed",
       });
 
-      console.log(`[generateProgressiveImage] Successfully generated level ${generationCount} for rootId: ${rootImageId}`);
 
     } catch (error) {
       console.error(`[generateProgressiveImage] Failed to generate level ${generationCount}:`, error);
@@ -486,7 +476,6 @@ export const generateProgressiveImage = internalAction({
           status: "failed",
           error: errorMessage
         });
-        console.log(`[generateProgressiveImage] Marked level ${generationCount} as failed: ${errorMessage}`);
       } catch (updateError) {
         console.error(`[generateProgressiveImage] Failed to update status:`, updateError);
         console.error(`[generateProgressiveImage] Original error: ${errorMessage}`);

@@ -43,7 +43,6 @@ export default function Home() {
   // Memoize images to prevent dependency issues in other hooks
   const images = useMemo(() => imagesQuery || [], [imagesQuery]);
   
-  console.log('🔵 [DEBUG] Images from Convex:', images.length, 'images loaded', 'Total count:', imageCount);
   const [isCapturing, setIsCapturing] = useState(false);
   const [mainView, setMainView] = useState<'journey' | 'hall-of-fame'>('journey');
 
@@ -210,8 +209,6 @@ export default function Home() {
   };
 
   const handleImageCapture = async (imageData: string) => {
-    console.log('🔵 [DEBUG] Starting image capture process...');
-    console.log('🔵 [DEBUG] Image data length:', imageData.length);
     
     // Check if user has reached maximum absurdity (Level 5) and it's fully displayed
     if (displayedImages.some(img => img.absurdityLevel === 5 && img.generationStatus !== 'pending' && img.generationStatus !== 'processing')) {
@@ -230,22 +227,16 @@ export default function Home() {
 
     try {
       // Convert base64 to blob
-      console.log('🔵 [DEBUG] Converting base64 to blob...');
       const response = await fetch(imageData);
       const blob = await response.blob();
-      console.log('🔵 [DEBUG] Blob created, size:', blob.size, 'bytes');
 
       // Create a File object from the blob
       const file = new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
-      console.log('🔵 [DEBUG] File created:', file.name, 'size:', file.size);
 
       // Step 1: Get an upload URL from Convex
-      console.log('🔵 [DEBUG] Getting upload URL from Convex...');
       const uploadUrl = await generateUploadUrl();
-      console.log('🔵 [DEBUG] Got upload URL:', uploadUrl);
 
       // Step 2: Upload the file to the generated URL
-      console.log('🔵 [DEBUG] Uploading file to Convex...');
       const uploadResult = await fetch(uploadUrl, {
         method: "POST",
         headers: { "Content-Type": file.type },
@@ -257,13 +248,10 @@ export default function Home() {
       }
 
       const { storageId } = await uploadResult.json();
-      console.log('🔵 [DEBUG] Upload successful, storageId:', storageId);
 
       // Step 3: Schedule progressive generation (starts at level 1)
       try {
-        console.log('🔵 [DEBUG] Scheduling progressive generation...');
-        const result = await scheduleProgressiveGeneration({ storageId });
-        console.log("🔵 [DEBUG] Progressive generation scheduled successfully! Result:", result);
+        await scheduleProgressiveGeneration({ storageId });
 
         // Show engaging success toast
         toast.success("🎉 Transformation Started!", {
@@ -295,7 +283,6 @@ export default function Home() {
         }
       }
 
-      console.log("Image captured and uploaded successfully!");
 
     } catch (error) {
       console.error("Failed to upload captured image:", error);
