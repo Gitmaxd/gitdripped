@@ -130,6 +130,7 @@ export default function Webcam({ onCapture, isUploading = false }: WebcamProps) 
           </div>
         ) : (
           <div className="relative">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={capturedImage}
               alt="Captured"

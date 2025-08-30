@@ -208,6 +208,7 @@ export default function HallOfFame() {
           className="aspect-square relative overflow-hidden cursor-pointer"
           onClick={() => setSelectedChampion(champion)}
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={champion.url}
             alt={`Champion ${champion.rank} - ${getLevelName(champion.absurdityLevel)}`}
@@ -373,6 +374,7 @@ export default function HallOfFame() {
                 </button>
               </div>
               
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={selectedChampion.url}
                 alt="Champion"

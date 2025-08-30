@@ -45,6 +45,7 @@ export default function FakePaywall({ isOpen, onClose }: FakePaywallProps) {
           <div className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 border border-blue-700 rounded-lg p-4 mt-4">
             <div className="flex items-center justify-center gap-3 mb-3">
               <div className="w-12 h-12 rounded-full border-2 border-blue-400 overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/profile.jpg"
                   alt="Creator Profile"

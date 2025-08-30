@@ -73,11 +73,13 @@ export default function ImagePreview({
   const hasLevel5Image = uploadedImages.some(img => img.absurdityLevel === 5);
 
   // Timer management constants
-  const WAIT_TIME_MS = 10000; // 10 seconds for testing (was 4:20 = 260000ms)
+  const WAIT_TIME_MS = 260000; // 4:20 (4 minutes 20 seconds)
   const STORAGE_KEY = 'gitdripped-wait-timers';
+  const TIMERS_STARTED_KEY = 'gitdripped-timers-started';
 
   // Load timer state from localStorage on component mount
   useEffect(() => {
+    // Load wait timers
     const savedTimers = localStorage.getItem(STORAGE_KEY);
     if (savedTimers) {
       try {
@@ -96,6 +98,17 @@ export default function ImagePreview({
         console.error('Failed to load wait timers from localStorage:', error);
       }
     }
+
+    // Load timers started state
+    const savedTimersStarted = localStorage.getItem(TIMERS_STARTED_KEY);
+    if (savedTimersStarted) {
+      try {
+        const timersStartedArray = JSON.parse(savedTimersStarted);
+        setTimersStarted(new Set(timersStartedArray));
+      } catch (error) {
+        console.error('Failed to load timers started from localStorage:', error);
+      }
+    }
   }, []);
 
   // Save timer state to localStorage whenever it changes
@@ -103,6 +116,7 @@ export default function ImagePreview({
     const timersObject = Object.fromEntries(waitingImages);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(timersObject));
   }, [waitingImages]);
+
 
   // Clock update effect - runs every second to update countdown displays
   useEffect(() => {
@@ -126,6 +140,12 @@ export default function ImagePreview({
         
         if (hasExpired) {
           setWaitingImages(activeTimers);
+          // Also clean up expired timers from timersStarted
+          setTimersStarted(prev => {
+            const updated = new Set(prev);
+            newlyCompleted.forEach(id => updated.delete(id));
+            return updated;
+          });
         }
         
         // Mark newly completed timers for celebration display
@@ -248,6 +268,12 @@ export default function ImagePreview({
   // Track which images we've already started timers for
   const [timersStarted, setTimersStarted] = useState<Set<string>>(new Set());
 
+  // Save timers started state to localStorage whenever it changes
+  useEffect(() => {
+    const timersStartedArray = Array.from(timersStarted);
+    localStorage.setItem(TIMERS_STARTED_KEY, JSON.stringify(timersStartedArray));
+  }, [timersStarted]);
+
   // Clean up escalating state when new images appear or escalation completes
   useEffect(() => {
     // Clear escalating state for images that now have higher-level versions
@@ -338,6 +364,7 @@ export default function ImagePreview({
               
               {/* Image Container - Clean and Visible - Clickable */}
               <div className="aspect-[3/2] relative overflow-hidden cursor-pointer" onClick={() => handleImageClick(image.data)}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={image.data.url}
                   alt={`Level ${image.data.absurdityLevel || 1} Image`}
@@ -546,6 +573,7 @@ export default function ImagePreview({
                   {/* Compact Profile */}
                   <div className="relative mx-auto">
                     <div className="w-16 h-16 rounded-full border-3 border-yellow-400 overflow-hidden mx-auto shadow-lg">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/profile.jpg"
                         alt="@gitmaxd"
@@ -643,6 +671,7 @@ export default function ImagePreview({
 
               {/* Image */}
               <div className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={selectedImage.url || ''}
                   alt={`Level ${selectedImage.absurdityLevel || 1} Image`}

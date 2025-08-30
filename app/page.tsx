@@ -36,10 +36,13 @@ export default function Home() {
   // Image generation scheduling mutations
   const scheduleProgressiveGeneration = useMutation(api.generate.scheduleProgressiveGeneration);
 
-  const [isGenerating, setIsGenerating] = useState(false);
 
-  const images = useQuery(api.images.getImages) || [];
+  const imagesQuery = useQuery(api.images.getImages);
   const imageCount = useQuery(api.images.getImageCount) || 0;
+  
+  // Memoize images to prevent dependency issues in other hooks
+  const images = useMemo(() => imagesQuery || [], [imagesQuery]);
+  
   console.log('🔵 [DEBUG] Images from Convex:', images.length, 'images loaded', 'Total count:', imageCount);
   const [isCapturing, setIsCapturing] = useState(false);
   const [mainView, setMainView] = useState<'journey' | 'hall-of-fame'>('journey');
@@ -91,7 +94,7 @@ export default function Home() {
       setDisplayedImages(generatedImages.slice(0, IMAGES_PER_PAGE));
       setCurrentPage(0);
     }
-  }, [generatedImages.length, displayedImages.length]);
+  }, [generatedImages, displayedImages.length, IMAGES_PER_PAGE]);
 
   // Handle loading more images for infinite scroll
   const handleLoadMore = useCallback(() => {
@@ -257,7 +260,6 @@ export default function Home() {
       console.log('🔵 [DEBUG] Upload successful, storageId:', storageId);
 
       // Step 3: Schedule progressive generation (starts at level 1)
-      setIsGenerating(true);
       try {
         console.log('🔵 [DEBUG] Scheduling progressive generation...');
         const result = await scheduleProgressiveGeneration({ storageId });
@@ -291,8 +293,6 @@ export default function Home() {
             duration: 5000,
           });
         }
-      } finally {
-        setIsGenerating(false);
       }
 
       console.log("Image captured and uploaded successfully!");
