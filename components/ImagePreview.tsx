@@ -1,5 +1,5 @@
 import { Button } from "./ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import FakePaywall from "./FakePaywall";
 
 
@@ -47,6 +47,12 @@ export default function ImagePreview({
   const [escalatingImages, setEscalatingImages] = useState<Set<string>>(new Set());
   const [showPaywall, setShowPaywall] = useState(false);
   const [pendingEscalation, setPendingEscalation] = useState<UploadedImage | null>(null);
+  
+  // Wait timer state - 4:20 (260 seconds) wait after levels 3 and 4
+  const [waitingImages, setWaitingImages] = useState<Map<string, number>>(new Map()); // imageId -> endTime
+  const [currentTime, setCurrentTime] = useState<number>(Date.now());
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [justCompleted, setJustCompleted] = useState<Set<string>>(new Set());
 
   // Only show uploaded images (captured images are now uploaded automatically)
   const allImages = uploadedImages.map((img, index) => ({
@@ -58,8 +64,124 @@ export default function ImagePreview({
   // Check if user has achieved Level 5 (maximum chaos) - for the finale card
   const hasLevel5Image = uploadedImages.some(img => img.absurdityLevel === 5);
 
+  // Timer management constants
+  const WAIT_TIME_MS = 10000; // 10 seconds for testing (was 4:20 = 260000ms)
+  const STORAGE_KEY = 'gitdripped-wait-timers';
+
+  // Load timer state from localStorage on component mount
+  useEffect(() => {
+    const savedTimers = localStorage.getItem(STORAGE_KEY);
+    if (savedTimers) {
+      try {
+        const timers = JSON.parse(savedTimers);
+        const activeTimers = new Map<string, number>();
+        
+        // Only keep timers that haven't expired
+        Object.entries(timers).forEach(([imageId, endTime]) => {
+          if (typeof endTime === 'number' && endTime > Date.now()) {
+            activeTimers.set(imageId, endTime);
+          }
+        });
+        
+        setWaitingImages(activeTimers);
+      } catch (error) {
+        console.error('Failed to load wait timers from localStorage:', error);
+      }
+    }
+  }, []);
+
+  // Save timer state to localStorage whenever it changes
+  useEffect(() => {
+    const timersObject = Object.fromEntries(waitingImages);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(timersObject));
+  }, [waitingImages]);
+
+  // Clock update effect - runs every second to update countdown displays
+  useEffect(() => {
+    if (waitingImages.size > 0) {
+      const updateTimer = () => {
+        const now = Date.now();
+        setCurrentTime(now);
+        
+        // Clean up expired timers and track just completed ones
+        const activeTimers = new Map(waitingImages);
+        const newlyCompleted = new Set<string>();
+        let hasExpired = false;
+        
+        activeTimers.forEach((endTime, imageId) => {
+          if (endTime <= now) {
+            activeTimers.delete(imageId);
+            hasExpired = true;
+            newlyCompleted.add(imageId);
+          }
+        });
+        
+        if (hasExpired) {
+          setWaitingImages(activeTimers);
+        }
+        
+        // Mark newly completed timers for celebration display
+        if (newlyCompleted.size > 0) {
+          setJustCompleted(prev => new Set([...prev, ...newlyCompleted]));
+          
+          // Clear the celebration state after 3 seconds
+          setTimeout(() => {
+            setJustCompleted(prev => {
+              const updated = new Set(prev);
+              newlyCompleted.forEach(id => updated.delete(id));
+              return updated;
+            });
+          }, 3000);
+        }
+      };
+      
+      // Start the timer immediately and then every second
+      updateTimer();
+      timerRef.current = setInterval(updateTimer, 1000);
+      
+      return () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+      };
+    } else {
+      // No active timers, clear the interval
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+  }, [waitingImages]);
+
+  // Helper function to start wait timer for an image
+  const startWaitTimer = useCallback((imageId: string) => {
+    const endTime = Date.now() + WAIT_TIME_MS;
+    setWaitingImages(prev => new Map(prev).set(imageId, endTime));
+  }, [WAIT_TIME_MS]);
+
+  // Helper function to check if an image is in waiting period
+  const isImageWaiting = useCallback((imageId: string): boolean => {
+    const endTime = waitingImages.get(imageId);
+    return endTime ? endTime > currentTime : false;
+  }, [waitingImages, currentTime]);
+
+  // Helper function to get remaining wait time for an image
+  const getRemainingWaitTime = useCallback((imageId: string): number => {
+    const endTime = waitingImages.get(imageId);
+    return endTime ? Math.max(0, endTime - currentTime) : 0;
+  }, [waitingImages, currentTime]);
+
+  // Helper function to format time as MM:SS
+  const formatTime = useCallback((milliseconds: number): string => {
+    const totalSeconds = Math.ceil(milliseconds / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }, []);
+
   // Helper function to check if an image has already been escalated
-  const hasBeenEscalated = (image: UploadedImage): boolean => {
+  const hasBeenEscalated = useCallback((image: UploadedImage): boolean => {
     if (!image.rootImageId || !image.absurdityLevel) return false;
     
     // Check if there's a higher level image from the same root
@@ -70,9 +192,9 @@ export default function ImagePreview({
     );
     
     return higherLevelExists;
-  };
+  }, [uploadedImages]);
 
-  // Handler for escalation with paywall check
+  // Handler for escalation with paywall check and wait timer
   const handleEscalate = (image: UploadedImage) => {
     if (!onEscalate) return;
     
@@ -83,7 +205,7 @@ export default function ImagePreview({
       return;
     }
     
-    // For other levels, proceed normally
+    // For other levels, proceed with escalation
     // Add to escalating set immediately
     setEscalatingImages(prev => new Set(prev).add(image._id));
     
@@ -109,13 +231,17 @@ export default function ImagePreview({
     return escalatingImages.has(imageId);
   };
 
+  // Track which images we've already started timers for
+  const [timersStarted, setTimersStarted] = useState<Set<string>>(new Set());
+
   // Clean up escalating state when new images appear or escalation completes
   useEffect(() => {
     // Clear escalating state for images that now have higher-level versions
     const toRemove: string[] = [];
+    
     escalatingImages.forEach(imageId => {
-      const image = uploadedImages.find(img => img._id === imageId);
-      if (image && hasBeenEscalated(image)) {
+      const originalImage = uploadedImages.find(img => img._id === imageId);
+      if (originalImage && hasBeenEscalated(originalImage)) {
         toRemove.push(imageId);
       }
     });
@@ -129,6 +255,20 @@ export default function ImagePreview({
     }
   }, [uploadedImages, escalatingImages, hasBeenEscalated]);
 
+  // Start wait timers for newly created level 3 and 4 images
+  useEffect(() => {
+    uploadedImages.forEach(image => {
+      // Only start timers for Level 3 and Level 4 images that don't already have timers
+      if ((image.absurdityLevel === 3 || image.absurdityLevel === 4) && 
+          !timersStarted.has(image._id)) {
+        
+        console.log(`🎯 Starting wait timer for Level ${image.absurdityLevel} image:`, image._id);
+        startWaitTimer(image._id);
+        setTimersStarted(prev => new Set(prev).add(image._id));
+      }
+    });
+  }, [uploadedImages, timersStarted, startWaitTimer]);
+
 
 
   if (allImages.length === 0 && !isLoading) {
@@ -138,9 +278,9 @@ export default function ImagePreview({
           <div className="text-6xl mb-4">🚀</div>
           <p className="text-lg font-medium mb-2">Ready for the Absurdity Journey!</p>
           <p className="text-sm">Upload or capture an image to start your 5-level transformation adventure</p>
-          <div className="mt-4 bg-gradient-to-r from-purple-100 to-pink-100 rounded-lg p-3 text-xs">
-            <p className="font-bold text-purple-800 mb-1">🚀 The Absurdity Levels:</p>
-            <div className="space-y-1 text-purple-700">
+          <div className="mt-4 bg-gradient-to-r from-slate-100 to-gray-100 rounded-lg p-3 text-xs">
+            <p className="font-bold text-slate-800 mb-1">🚀 The Absurdity Levels:</p>
+            <div className="space-y-1 text-slate-700">
               <p>Level 1: ✨ Getting Dripped</p>
               <p>Level 2: 💎 Seriously Dripped Out</p> 
               <p>Level 3: 🔥 Absolutely Ridiculous</p>
@@ -157,13 +297,13 @@ export default function ImagePreview({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1">
       {/* Compact Level Indicator */}
       <div className="flex items-center justify-center">
         <div className={`px-3 py-1 rounded-full text-sm font-bold ${
           totalImages >= 5 
             ? 'bg-gradient-to-r from-yellow-400 to-red-500 text-white animate-pulse' 
-            : 'bg-gradient-to-r from-purple-500 to-blue-500 text-white'
+            : 'bg-gradient-to-r from-slate-500 to-blue-500 text-white'
         }`}>
           {totalImages >= 5 
             ? '👑 MAXIMUM CHAOS UNLOCKED!' 
@@ -171,7 +311,7 @@ export default function ImagePreview({
           }
         </div>
         {isLoading && (
-          <div className="ml-2 animate-spin rounded-full h-4 w-4 border-2 border-purple-400 border-t-transparent"></div>
+          <div className="ml-2 animate-spin rounded-full h-4 w-4 border-2 border-slate-400 border-t-transparent"></div>
         )}
       </div>
 
@@ -183,7 +323,7 @@ export default function ImagePreview({
             <div className="bg-card border border-border hover:border-accent transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl overflow-hidden">
               
               {/* Image Container - Clean and Visible */}
-              <div className="aspect-[4/3] relative overflow-hidden">
+              <div className="aspect-[3/2] relative overflow-hidden">
                 <img
                   src={image.data.url}
                   alt={`Level ${image.data.absurdityLevel || 1} Image`}
@@ -223,7 +363,7 @@ export default function ImagePreview({
 
                 {/* Processing Overlay - Only When Needed */}
                 {(image.data.generationStatus === 'pending' || image.data.generationStatus === 'processing') && (
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-900/95 via-blue-900/95 to-black/95 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-blue-900/95 to-black/95 flex items-center justify-center">
                     <div className="text-center text-white">
                       <div className="animate-spin rounded-full h-8 w-8 border-2 border-yellow-400 border-t-transparent mx-auto mb-2"></div>
                       <p className="text-sm font-bold">
@@ -235,7 +375,7 @@ export default function ImagePreview({
               </div>
 
               {/* Bottom Info Panel - Professional Game UI */}
-              <div className="p-4 space-y-3 bg-gradient-to-r from-muted/50 to-muted/30">
+              <div className="p-2 space-y-2 bg-gradient-to-r from-muted/50 to-muted/30">
                 
                 {/* Progress Bar Section */}
                 {showChainProgress && image.data.absurdityLevel && image.data.absurdityLevel > 0 && (
@@ -249,7 +389,7 @@ export default function ImagePreview({
                         className={`h-2 rounded-full transition-all duration-500 ${
                           image.data.absurdityLevel >= 4 
                             ? 'bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500' 
-                            : 'bg-gradient-to-r from-blue-400 to-purple-500'
+                            : 'bg-gradient-to-r from-blue-400 to-slate-500'
                         }`}
                         style={{ width: `${(image.data.absurdityLevel / 5) * 100}%` }}
                       ></div>
@@ -263,11 +403,61 @@ export default function ImagePreview({
                   </div>
                 )}
 
+                {/* Wait Timer Display - Show when image is in waiting period */}
+                {onEscalate && image.data.absurdityLevel && image.data.absurdityLevel < 5 && 
+                 image.data.generationStatus !== 'pending' && 
+                 image.data.generationStatus !== 'processing' && 
+                 !hasBeenEscalated(image.data) && !isEscalating(image.data._id) && 
+                 isImageWaiting(image.data._id) && (
+                  <div className="w-full bg-gradient-to-r from-slate-600 to-slate-700 text-white font-bold py-2 px-4 rounded-lg">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-center gap-2">
+                        <span>⏰</span>
+                        <span className="text-lg tabular-nums">
+                          {formatTime(getRemainingWaitTime(image.data._id))}
+                        </span>
+                        <span>⏰</span>
+                      </div>
+                      <div className="text-xs text-center text-slate-200">
+                        Good things come to those who wait...
+                      </div>
+                      {/* Progress bar showing time remaining */}
+                      <div className="w-full bg-white/20 rounded-full h-1">
+                        <div 
+                          className="h-1 rounded-full bg-gradient-to-r from-blue-400 to-slate-400 transition-all duration-1000"
+                          style={{ 
+                            width: `${100 - (getRemainingWaitTime(image.data._id) / WAIT_TIME_MS) * 100}%` 
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Timer Just Completed Celebration - Show for 3 seconds after timer ends */}
+                {onEscalate && image.data.absurdityLevel && image.data.absurdityLevel < 5 && 
+                 image.data.generationStatus !== 'pending' && 
+                 image.data.generationStatus !== 'processing' && 
+                 !hasBeenEscalated(image.data) && !isEscalating(image.data._id) && 
+                 !isImageWaiting(image.data._id) && justCompleted.has(image.data._id) && (
+                  <div className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white font-bold py-2 px-4 rounded-lg animate-pulse">
+                    <div className="flex items-center justify-center gap-2">
+                      <span className="animate-bounce">🎉</span>
+                      <span>WAIT COMPLETE!</span>
+                      <span className="animate-bounce">🎉</span>
+                    </div>
+                    <div className="text-xs text-center text-green-100 mt-1">
+                      Ready to escalate to Level {image.data.absurdityLevel + 1}!
+                    </div>
+                  </div>
+                )}
+
                 {/* Action Button - Clean and Professional */}
                 {onEscalate && image.data.absurdityLevel && image.data.absurdityLevel < 5 && 
                  image.data.generationStatus !== 'pending' && 
                  image.data.generationStatus !== 'processing' && 
-                 !hasBeenEscalated(image.data) && !isEscalating(image.data._id) && (
+                 !hasBeenEscalated(image.data) && !isEscalating(image.data._id) && 
+                 !isImageWaiting(image.data._id) && !justCompleted.has(image.data._id) && (
                   <button
                     onClick={() => handleEscalate(image.data)}
                     className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-white font-bold py-2 px-4 rounded-lg transition-all duration-300 hover:scale-105 shadow-md hover:shadow-lg"
@@ -283,7 +473,7 @@ export default function ImagePreview({
                 {/* Escalating Status - Immediate Feedback */}
                 {onEscalate && image.data.absurdityLevel && image.data.absurdityLevel < 5 && 
                  !hasBeenEscalated(image.data) && isEscalating(image.data._id) && (
-                  <div className="w-full bg-gradient-to-r from-purple-500 to-blue-500 text-white font-bold py-2 px-4 rounded-lg text-center">
+                  <div className="w-full bg-gradient-to-r from-slate-600 to-blue-600 text-white font-bold py-2 px-4 rounded-lg text-center">
                     <div className="flex items-center justify-center gap-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                       <span>⚡ Level {image.data.absurdityLevel + 1} Starting!</span>
@@ -336,7 +526,7 @@ export default function ImagePreview({
               </div>
 
               {/* Main Content - Matches image card aspect ratio */}
-              <div className="aspect-[4/3] relative overflow-hidden bg-gradient-to-br from-purple-900/90 to-black/90 flex items-center justify-center p-4">
+              <div className="aspect-[3/2] relative overflow-hidden bg-gradient-to-br from-slate-800/90 to-slate-900/90 flex items-center justify-center p-3">
                 <div className="text-center space-y-3">
                   
                   {/* Compact Profile */}
@@ -352,15 +542,14 @@ export default function ImagePreview({
                         }}
                       />
                     </div>
-                    <div className="absolute -top-1 -right-1 text-lg animate-bounce">🚀</div>
                   </div>
 
                   {/* Compact Message */}
                   <div className="space-y-2">
                     <p className="text-yellow-400 font-bold text-base leading-tight">
-                      Had fun? Let's go! 🚀
+                      Had fun? Let&apos;s go! 🚀
                     </p>
-                    <div className="text-xs text-purple-200 leading-tight">
+                    <div className="text-xs text-slate-200 leading-tight">
                       <div>Follow <span className="font-bold text-blue-400">@gitmaxd</span></div>
                       <div>for more AI chaos!</div>
                     </div>

@@ -308,46 +308,52 @@ export default function Home() {
   // Removed upload functionality to optimize for viewport fit
 
   return (
-    <div className="flex flex-col w-full h-screen overflow-hidden">
-      {/* Compact Header */}
-      <div className="flex-shrink-0 p-2 border-b border-border">
+    <div className="flex flex-col w-full h-screen overflow-hidden bg-background">
+      {/* Professional Header */}
+      <div className="flex-shrink-0 px-4 py-3 bg-card border-b border-border shadow-sm">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg sm:text-xl font-semibold">Git Dripped</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-100">
+              Git Dripped
+            </h1>
             <Link
               href="https://github.com/michaelshimeles/drip-me-out"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground transition-colors"
+              className="text-muted-foreground hover:text-primary transition-all duration-200 hover:scale-110"
             >
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" className="hover:bg-accent">
                 <GithubIcon className="h-4 w-4" />
               </Button>
             </Link>
           </div>
           
           {/* Status Indicator */}
-          <div className={`text-xs font-medium px-2 py-1 rounded-full ${
+          <div className={`text-sm font-bold px-4 py-2 rounded-full border backdrop-blur-sm ${
             imageCount >= 5 
-              ? 'bg-red-100 text-red-800 border border-red-200' 
+              ? 'bg-destructive/20 text-slate-100 border-destructive/30' 
               : imageCount >= 3 
-                ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-                : 'bg-green-100 text-green-800 border border-green-200'
+                ? 'bg-chart-4/20 text-chart-4 border-chart-4/30'
+                : 'bg-chart-2/20 text-chart-2 border-chart-2/30'
           }`}>
             {imageCount >= 5 
-              ? '🚫 Level 5' 
-              : `✨ ${imageCount}/5`
+              ? '👑 Max Level' 
+              : `✨ Level ${imageCount}/5`
             }
           </div>
         </div>
       </div>
       
       {/* Main Navigation */}
-      <div className="flex-shrink-0 p-2">
-        <Tabs value={mainView} onValueChange={(value) => setMainView(value as 'journey' | 'hall-of-fame')} className="w-full max-w-md mx-auto">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="journey" className="text-sm font-medium">🚀 Your Journey</TabsTrigger>
-            <TabsTrigger value="hall-of-fame" className="text-sm font-medium">🏆 Hall of Fame</TabsTrigger>
+      <div className="flex-shrink-0 px-4 py-2 bg-card/50 border-b border-border/50">
+        <Tabs value={mainView} onValueChange={(value) => setMainView(value as 'journey' | 'hall-of-fame')} className="w-full max-w-lg mx-auto">
+          <TabsList className="grid w-full grid-cols-2 bg-muted/50 p-1">
+            <TabsTrigger value="journey" className="text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              🚀 Your Journey
+            </TabsTrigger>
+            <TabsTrigger value="hall-of-fame" className="text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              🏆 Hall of Fame
+            </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
@@ -355,23 +361,28 @@ export default function Home() {
       {/* Content Area - Flex-1 to fill remaining space */}
       <div className="flex-1 overflow-hidden">
         {mainView === 'journey' && (
-          <div className="h-full">
-            <div className="h-full flex flex-col lg:flex-row gap-3 px-2 sm:px-4 lg:px-6 py-2">
+          <div className="h-full bg-background">
+            <div className="h-full flex flex-col lg:flex-row gap-3 px-3 sm:px-4 lg:px-6 py-3">
             {/* Camera/Upload Section */}
             <div className="w-full lg:w-1/3 flex-shrink-0">
-              <div className="h-full flex flex-col">
+              <div className="h-full flex flex-col bg-card rounded-lg border border-border shadow-sm p-3">
                 <Tabs defaultValue="camera" className="flex-1 flex flex-col">
-                  <TabsList className="flex-shrink-0">
-                    <TabsTrigger value="camera" className="text-sm font-medium">📸 Camera</TabsTrigger>
+                  <TabsList className="flex-shrink-0 bg-muted/50 mb-4">
+                    <TabsTrigger value="camera" className="text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                      📸 Camera
+                    </TabsTrigger>
                   </TabsList>
                   <TabsContent value="camera" className="flex-1 overflow-hidden">
                     <div className="h-full">
                       {imageCount >= 5 ? (
                         <div className="flex items-center justify-center h-full">
-                          <div className="text-center p-4 bg-red-50 border border-red-200 rounded-lg">
-                            <div className="text-4xl mb-2">👑</div>
-                            <h3 className="text-lg font-bold text-red-800 mb-1">Maximum Chaos Achieved!</h3>
-                            <p className="text-sm text-red-600">Level 5 complete!</p>
+                          <div className="text-center p-6 bg-gradient-to-br from-chart-4/20 to-chart-5/20 border border-chart-4/30 rounded-xl shadow-lg backdrop-blur-sm">
+                            <div className="text-6xl mb-4 animate-bounce">👑</div>
+                            <h3 className="text-xl font-bold text-chart-4 mb-2">Maximum Chaos Achieved!</h3>
+                            <p className="text-sm text-muted-foreground">Level 5 complete!</p>
+                            <div className="mt-4 w-full bg-chart-4/20 rounded-full h-2">
+                              <div className="h-2 rounded-full bg-gradient-to-r from-chart-4 to-chart-5 w-full animate-pulse"></div>
+                            </div>
                           </div>
                         </div>
                       ) : (
@@ -385,7 +396,7 @@ export default function Home() {
 
             {/* Image Preview Section */}
             <div className="w-full lg:w-2/3 overflow-hidden">
-              <div className="h-full overflow-y-auto">
+              <div className="h-full overflow-y-auto bg-card/30 rounded-lg border border-border/50 p-3 backdrop-blur-sm">
                 <ImagePreview
                   images={[]}
                   uploadedImages={displayedImages.map(image => ({
@@ -415,8 +426,10 @@ export default function Home() {
         )}
 
         {mainView === 'hall-of-fame' && (
-          <div className="h-full px-2 sm:px-4 lg:px-6 py-2 overflow-y-auto">
-            <HallOfFame />
+          <div className="h-full bg-background px-4 sm:px-6 lg:px-8 py-4 overflow-y-auto">
+            <div className="bg-card/30 rounded-lg border border-border/50 p-4 backdrop-blur-sm h-full">
+              <HallOfFame />
+            </div>
           </div>
         )}
       </div>
