@@ -317,7 +317,7 @@ export default function Home() {
               Git Dripped
             </h1>
             <Link
-              href="https://github.com/michaelshimeles/drip-me-out"
+              href="https://github.com/Gitmaxd/gitdripped"
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-primary transition-all duration-200 hover:scale-110"

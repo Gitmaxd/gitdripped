@@ -14,6 +14,7 @@ import type {
   FunctionReference,
 } from "convex/server";
 import type * as clearImages from "../clearImages.js";
+import type * as crons from "../crons.js";
 import type * as generate from "../generate.js";
 import type * as https from "../https.js";
 import type * as images from "../images.js";
@@ -29,6 +30,7 @@ import type * as votes from "../votes.js";
  */
 declare const fullApi: ApiFromModules<{
   clearImages: typeof clearImages;
+  crons: typeof crons;
   generate: typeof generate;
   https: typeof https;
   images: typeof images;
