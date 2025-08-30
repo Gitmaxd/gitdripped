@@ -210,8 +210,8 @@ export default function Home() {
     console.log('🔵 [DEBUG] Starting image capture process...');
     console.log('🔵 [DEBUG] Image data length:', imageData.length);
     
-    // Check if user has reached maximum absurdity (Level 5)
-    if (imageCount >= 5) {
+    // Check if user has reached maximum absurdity (Level 5) and it's fully displayed
+    if (displayedImages.some(img => img.absurdityLevel === 5 && img.generationStatus !== 'pending' && img.generationStatus !== 'processing')) {
       toast.error("Maximum Chaos Achieved! 👑", {
         description: "You've reached Level 5 - the ultimate absurdity! Your journey is complete!",
         duration: 6000,
@@ -374,7 +374,7 @@ export default function Home() {
                   </TabsList>
                   <TabsContent value="camera" className="flex-1 overflow-hidden">
                     <div className="h-full">
-                      {imageCount >= 5 ? (
+                      {displayedImages.some(img => img.absurdityLevel === 5 && img.generationStatus !== 'pending' && img.generationStatus !== 'processing') ? (
                         <div className="flex items-center justify-center h-full">
                           <div className="text-center p-6 bg-gradient-to-br from-chart-4/20 to-chart-5/20 border border-chart-4/30 rounded-xl shadow-lg backdrop-blur-sm">
                             <div className="text-6xl mb-4 animate-bounce">👑</div>

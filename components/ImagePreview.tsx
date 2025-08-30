@@ -1,6 +1,10 @@
 import { Button } from "./ui/button";
 import { useState, useEffect, useCallback, useRef } from "react";
 import FakePaywall from "./FakePaywall";
+import {
+  Dialog,
+  DialogContent,
+} from "./ui/dialog";
 
 
 
@@ -53,6 +57,10 @@ export default function ImagePreview({
   const [currentTime, setCurrentTime] = useState<number>(Date.now());
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [justCompleted, setJustCompleted] = useState<Set<string>>(new Set());
+  
+  // Image dialog state
+  const [selectedImage, setSelectedImage] = useState<UploadedImage | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Only show uploaded images (captured images are now uploaded automatically)
   const allImages = uploadedImages.map((img, index) => ({
@@ -178,6 +186,12 @@ export default function ImagePreview({
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }, []);
+
+  // Handle image click to open in dialog
+  const handleImageClick = useCallback((image: UploadedImage) => {
+    setSelectedImage(image);
+    setIsDialogOpen(true);
   }, []);
 
   // Helper function to check if an image has already been escalated
@@ -322,8 +336,8 @@ export default function ImagePreview({
             {/* Game Card Style Container */}
             <div className="bg-card border border-border hover:border-accent transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl overflow-hidden">
               
-              {/* Image Container - Clean and Visible */}
-              <div className="aspect-[3/2] relative overflow-hidden">
+              {/* Image Container - Clean and Visible - Clickable */}
+              <div className="aspect-[3/2] relative overflow-hidden cursor-pointer" onClick={() => handleImageClick(image.data)}>
                 <img
                   src={image.data.url}
                   alt={`Level ${image.data.absurdityLevel || 1} Image`}
@@ -610,6 +624,84 @@ export default function ImagePreview({
 
       {/* Fake Paywall Dialog */}
       <FakePaywall isOpen={showPaywall} onClose={handlePaywallClose} />
+
+      {/* Image View Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-4xl w-full max-h-[90vh] p-0 overflow-hidden">
+          {selectedImage && (
+            <div className="relative">
+              {/* Close button - positioned absolutely */}
+              <button
+                onClick={() => setIsDialogOpen(false)}
+                className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-all duration-200"
+                aria-label="Close dialog"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </button>
+
+              {/* Image */}
+              <div className="relative">
+                <img
+                  src={selectedImage.url || ''}
+                  alt={`Level ${selectedImage.absurdityLevel || 1} Image`}
+                  className="w-full h-auto max-h-[70vh] object-contain"
+                />
+                
+                {/* Level badge overlay */}
+                {selectedImage.absurdityLevel && (
+                  <div className="absolute top-4 left-4 bg-black/80 backdrop-blur-sm rounded-full px-3 py-1">
+                    <span className="text-sm font-bold text-white">
+                      Level {selectedImage.absurdityLevel}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Image details footer */}
+              <div className="p-6 bg-background border-t">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold">
+                      Level {selectedImage.absurdityLevel} • {
+                        ['', '✨ Getting Dripped', '💎 Seriously Dripped', '🔥 Absolutely Ridiculous', '👑 PEAK ABSURDITY', '🌟 MAXIMUM CHAOS'][selectedImage.absurdityLevel || 0]
+                      }
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {selectedImage.generationStatus === 'completed' ? 'Generation complete' : 
+                       selectedImage.generationStatus === 'processing' ? 'Processing...' :
+                       selectedImage.generationStatus === 'pending' ? 'Queued for generation' : 'Ready'}
+                    </p>
+                  </div>
+                  
+                  {/* Download button */}
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (selectedImage.url) {
+                        const link = document.createElement('a');
+                        link.href = selectedImage.url;
+                        link.download = `level-${selectedImage.absurdityLevel}-dripped.jpg`;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M8 11L4 7H6V3H10V7H12L8 11Z" fill="currentColor"/>
+                      <path d="M2 13H14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                    Download
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

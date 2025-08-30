@@ -4,33 +4,33 @@ import { internal, api } from "./_generated/api";
 import { GoogleGenAI } from "@google/genai";
 
 /**
- * Progressive Absurdity Prompt Configuration
- * Each level escalates the ridiculousness for maximum entertainment
+ * Progressive Absurdity Prompt Configuration with Gender-Aware Styling
+ * Each level escalates the ridiculousness for maximum entertainment while maintaining gender-appropriate characteristics
  */
 const ESCALATION_PROMPTS = [
   {
     level: 1,
-    prompt: "Add a subtle diamond chain necklace",
+    prompt: "IMPORTANT: Maintain the person's identity, facial features, and gender characteristics throughout. Apply gender-appropriate styling - for women use elegant, delicate jewelry (graceful chains, feminine earrings); for men use bold, masculine accessories (heavy chains, masculine styling). Now add: a subtle diamond chain necklace that suits their gender and style.",
     description: "Basic bling"
   },
   {
     level: 2,
-    prompt: "Add a massive diamond chain, diamond grills if smiling, and diamond earrings",
+    prompt: "IMPORTANT: Maintain the person's identity and gender characteristics. Apply gender-appropriate styling - for women use elegant jewelry (delicate layered chains, feminine diamond earrings, graceful styling); for men use masculine accessories (heavy diamond chains, bold earrings if appropriate, masculine styling). Now add: a massive diamond chain, diamond grills if smiling, and diamond earrings that match their gender presentation.",
     description: "Getting dripped"
   },
   {
     level: 3,
-    prompt: "Add multiple layered diamond chains, full diamond grills, sunglasses with diamonds, a crown, and diamond watches on both wrists",
+    prompt: "IMPORTANT: Maintain the person's identity and gender characteristics. Apply gender-appropriate styling - for women use elegant accessories (layered delicate chains, feminine diamond sunglasses, tiara or elegant crown, delicate watches); for men use masculine accessories (heavy layered chains, masculine diamond sunglasses, bold crown, masculine watches). Now add: multiple layered diamond chains, full diamond grills, sunglasses with diamonds, a crown, and diamond watches on both wrists - all styled appropriately for their gender.",
     description: "Seriously dripped out"
   },
   {
     level: 4,
-    prompt: "Maximum bling: Add enormous stacked diamond chains, full diamond grills, diamond-encrusted sunglasses, a massive crown, cape made of gold chains, diamond gloves, and floating money symbols",
+    prompt: "IMPORTANT: Maintain the person's identity and gender characteristics. Apply gender-appropriate styling - for women use maximum elegant accessories (stacked delicate chains, feminine diamond sunglasses, elegant crown/tiara, graceful cape, delicate gloves); for men use maximum masculine accessories (enormous heavy chains, masculine diamond sunglasses, bold crown, powerful cape, masculine gloves). Now add: Maximum bling with enormous stacked diamond chains, full diamond grills, diamond-encrusted sunglasses, a massive crown, cape made of gold chains, diamond gloves, and floating money symbols - all styled for their gender.",
     description: "Absolutely ridiculous"
   },
   {
     level: 5,
-    prompt: "ULTIMATE CHAOS MODE: Transform into a diamond deity with chains for hair, diamonds for eyes, gold aura, floating crown, cape of pure light, diamond armor, levitating jewelry orbiting around, and explosion of wealth symbols in background",
+    prompt: "ULTIMATE CHAOS MODE: Maintain the person's core identity and gender characteristics while transforming them into a diamond deity. For women: elegant divine transformation with graceful diamond chains for hair, sparkling diamond eyes, golden aura, floating tiara/crown, cape of pure light, elegant diamond armor, delicately orbiting jewelry. For men: powerful divine transformation with bold diamond chains for hair, blazing diamond eyes, golden aura, floating crown, cape of pure light, strong diamond armor, boldly orbiting jewelry. Add explosion of wealth symbols in background that matches their gender presentation.",
     description: "Peak absurdity achieved"
   }
 ];
