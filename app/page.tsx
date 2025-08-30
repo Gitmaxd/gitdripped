@@ -12,6 +12,23 @@ import { toast } from "sonner";
 import { GithubIcon } from "lucide-react";
 import Link from "next/link";
 
+// Generate a unique user ID for this session
+const generateUserId = (): string => {
+  return `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
+// Get or create user ID from localStorage
+const getUserId = (): string => {
+  if (typeof window === "undefined") return generateUserId();
+  
+  let userId = localStorage.getItem("gitdripped_user_id");
+  if (!userId) {
+    userId = generateUserId();
+    localStorage.setItem("gitdripped_user_id", userId);
+  }
+  return userId;
+};
+
 // Type definition for image objects (matching Convex schema)
 interface ImageObject {
   _id: string;
@@ -31,14 +48,20 @@ interface ImageObject {
 }
 
 export default function Home() {
+  const [userId, setUserId] = useState<string>("");
+  
+  // Initialize user ID on client side
+  useEffect(() => {
+    setUserId(getUserId());
+  }, []);
+
   const generateUploadUrl = useMutation(api.images.generateUploadUrl);
 
   // Image generation scheduling mutations
   const scheduleProgressiveGeneration = useMutation(api.generate.scheduleProgressiveGeneration);
 
-
-  const imagesQuery = useQuery(api.images.getImages);
-  const imageCount = useQuery(api.images.getImageCount) || 0;
+  const imagesQuery = useQuery(api.images.getImages, userId ? { userId } : "skip");
+  const imageCount = useQuery(api.images.getImageCount, userId ? { userId } : "skip") || 0;
   
   // Memoize images to prevent dependency issues in other hooks
   const images = useMemo(() => imagesQuery || [], [imagesQuery]);
@@ -170,7 +193,8 @@ export default function Home() {
       // Schedule progressive generation
       await scheduleProgressiveGeneration({ 
         storageId,
-        rootImageId: image.rootImageId 
+        rootImageId: image.rootImageId,
+        userId: userId || getUserId()
       });
       
       const nextLevel = image.absurdityLevel + 1;
@@ -251,7 +275,7 @@ export default function Home() {
 
       // Step 3: Schedule progressive generation (starts at level 1)
       try {
-        await scheduleProgressiveGeneration({ storageId });
+        await scheduleProgressiveGeneration({ storageId, userId: userId || getUserId() });
 
         // Show engaging success toast
         toast.success("🎉 Transformation Started!", {

@@ -28,7 +28,7 @@ interface ConvexFeature {
 
 export default function ConvexShowcase() {
     const [animatedFeatures, setAnimatedFeatures] = useState<number[]>([]);
-    const imagesQuery = useQuery(api.images.getImages);
+    const imagesQuery = useQuery(api.images.getImages, "skip"); // Skip for demo component
     const images = useMemo(() => imagesQuery || [], [imagesQuery]);
 
     const features: ConvexFeature[] = useMemo(() => [

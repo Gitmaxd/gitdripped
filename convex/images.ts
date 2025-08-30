@@ -1,6 +1,23 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 
+// Helper function to get the latest image from each user
+function getLatestImagePerUser(images: any[]) {
+  const userImageMap = new Map<string, any>();
+  
+  images.forEach(img => {
+    const userId = img.userId;
+    if (!userId) return;
+    
+    const existing = userImageMap.get(userId);
+    if (!existing || img.createdAt > existing.createdAt) {
+      userImageMap.set(userId, img);
+    }
+  });
+  
+  return Array.from(userImageMap.values());
+}
+
 export const generateUploadUrl = mutation({
   handler: async (ctx) => {
     return await ctx.storage.generateUploadUrl();
@@ -10,6 +27,7 @@ export const generateUploadUrl = mutation({
 export const sendImage = mutation({
   args: {
     storageId: v.id("_storage"),
+    userId: v.optional(v.string()),
     isGenerated: v.optional(v.boolean()),
     originalImageId: v.optional(v.string())
   },
@@ -17,6 +35,7 @@ export const sendImage = mutation({
     await ctx.db.insert("images", {
       body: args.storageId,
       createdAt: Date.now(),
+      userId: args.userId,
       isGenerated: args.isGenerated,
       originalImageId: args.originalImageId,
     });
@@ -24,34 +43,66 @@ export const sendImage = mutation({
 });
 
 export const getImages = query({
-  handler: async (ctx) => {
+  args: {
+    userId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
     // Get all images, then we'll filter and sort on the client side
     const images = await ctx.db.query("images").order("desc").collect();
 
-    // Generate URLs for each image
+    // Filter images based on user privacy rules
+    const visibleImages = images.filter(img => {
+      // Show all images for the current user
+      if (args.userId && img.userId === args.userId) {
+        return true;
+      }
+      // Show only the most recent generated images from other users (for public viewing)
+      // We'll filter to just the latest from each user later
+      if (img.userId !== args.userId && img.absurdityLevel && img.absurdityLevel > 0) {
+        return true;
+      }
+      // Hide Level 0 images from other users (original photos)
+      return false;
+    });
+
+    // Generate URLs for visible images
     const imagesWithUrls = await Promise.all(
-      images.map(async (image) => ({
+      visibleImages.map(async (image) => ({
         ...image,
         url: await ctx.storage.getUrl(image.body),
       }))
     );
 
-    // Find the most recent root image (original photo)
-    // Root images are the first in a chain - they have rootImageId pointing to their storage ID
-    const rootImages = imagesWithUrls.filter(img => 
-      img.rootImageId === img.body || // Original photo format
-      (!img.rootImageId && !img.isGenerated) // Fallback for old format
+    // Find the most recent root image for the current user
+    const userRootImages = imagesWithUrls.filter(img => 
+      img.userId === args.userId && (
+        img.rootImageId === img.body || // Original photo format
+        (!img.rootImageId && !img.isGenerated) // Fallback for old format
+      )
     );
     
-    const latestRoot = rootImages[0]; // Most recent root
-    if (!latestRoot) return [];
+    const latestUserRoot = userRootImages[0]; // Most recent user root
+    if (!latestUserRoot) {
+      // If no user root found, return latest images from other users for browsing
+      const otherUsersLatest = getLatestImagePerUser(imagesWithUrls.filter(img => img.userId !== args.userId));
+      return otherUsersLatest.slice(0, 10);
+    }
 
-    // Get all images from this chain - either the root itself or images pointing to the root
-    const chainImages = imagesWithUrls.filter(img => 
-      img._id === latestRoot._id || // The root image itself
-      img.rootImageId === latestRoot._id || // Images generated from this root  
-      img.rootImageId === latestRoot.body // Handle storage ID references
+    // Get all images from the current user's chain + latest images from others
+    const userChainImages = imagesWithUrls.filter(img => 
+      // User's complete chain
+      img.userId === args.userId && (
+        img._id === latestUserRoot._id || // The root image itself
+        img.rootImageId === latestUserRoot._id || // Images generated from this root  
+        img.rootImageId === latestUserRoot.body // Handle storage ID references
+      )
     );
+
+    // Get latest image from each other user for inspiration
+    const otherUsersImages = imagesWithUrls.filter(img => img.userId !== args.userId);
+    const otherUsersLatest = getLatestImagePerUser(otherUsersImages);
+
+    const chainImages = [...userChainImages, ...otherUsersLatest];
 
     // Sort by absurdity level for proper progression display (original first, then levels 1-5)
     return chainImages.sort((a, b) => (a.absurdityLevel || 0) - (b.absurdityLevel || 0));
@@ -59,23 +110,30 @@ export const getImages = query({
 });
 
 export const getImageCount = query({
-  handler: async (ctx) => {
+  args: {
+    userId: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
     const images = await ctx.db.query("images").order("desc").collect();
     
-    // Find the most recent root image chain
-    const rootImages = images.filter(img => 
-      img.rootImageId === img.body || // Original photo format
-      (!img.rootImageId && !img.isGenerated) // Fallback for old format
+    // Find the most recent root image chain for the current user
+    const userRootImages = images.filter(img => 
+      img.userId === args.userId && (
+        img.rootImageId === img.body || // Original photo format
+        (!img.rootImageId && !img.isGenerated) // Fallback for old format
+      )
     );
     
-    const latestRoot = rootImages[0]; // Most recent root
-    if (!latestRoot) return 0;
+    const latestUserRoot = userRootImages[0]; // Most recent user root
+    if (!latestUserRoot) return 0;
 
-    // Get all images from the latest chain
+    // Get all images from the current user's latest chain
     const chainImages = images.filter(img => 
-      img._id === latestRoot._id || // The root image itself
-      img.rootImageId === latestRoot._id || // Images generated from this root
-      img.rootImageId === latestRoot.body // Handle storage ID references
+      img.userId === args.userId && (
+        img._id === latestUserRoot._id || // The root image itself
+        img.rootImageId === latestUserRoot._id || // Images generated from this root
+        img.rootImageId === latestUserRoot.body // Handle storage ID references
+      )
     );
 
     // Find the maximum absurdity level reached (0-5)
@@ -103,24 +161,20 @@ export const getHallOfFameImages = query({
       rootImageGroups.get(rootId)!.push(img);
     });
     
-    // Find the highest level image for each root (user journey)
+    // Find the most recent image for each user (regardless of level)
     const championImages = [];
     
     for (const [rootId, groupImages] of rootImageGroups.entries()) {
-      // Find the image with the highest absurdity level in this group
-      const champion = groupImages.reduce((highest, current) => {
-        const currentLevel = current.absurdityLevel || 0;
-        const highestLevel = highest.absurdityLevel || 0;
-        
-        // If levels are equal, prefer the most recent one
-        if (currentLevel > highestLevel || 
-            (currentLevel === highestLevel && current.createdAt > highest.createdAt)) {
+      // Find the most recent image in this user's journey
+      const champion = groupImages.reduce((latest, current) => {
+        // Always prefer the most recent image
+        if (current.createdAt > latest.createdAt) {
           return current;
         }
-        return highest;
+        return latest;
       });
       
-      // Only include if it has some level of absurdity (generated images)
+      // Only include if it's a generated image (not the original level 0)
       if (champion.absurdityLevel && champion.absurdityLevel > 0) {
         championImages.push(champion);
       }

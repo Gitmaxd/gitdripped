@@ -5,6 +5,7 @@ export default defineSchema({
     images: defineTable({
         body: v.string(),
         createdAt: v.number(),
+        userId: v.optional(v.string()),               // User who uploaded this image
         isGenerated: v.optional(v.boolean()),
         originalImageId: v.optional(v.string()),
         generationStatus: v.optional(v.string()), // "pending", "processing", "completed", "failed"
@@ -21,6 +22,7 @@ export default defineSchema({
     .index("by_is_generated", ["isGenerated"])
     .index("by_generation_status", ["generationStatus"])
     .index("by_root_image", ["rootImageId"])       // Index for chain queries
+    .index("by_user_id", ["userId"])               // Index for user-specific queries
     .index("by_vote_count", ["voteCount"]),        // Index for vote-based sorting
 
     votes: defineTable({

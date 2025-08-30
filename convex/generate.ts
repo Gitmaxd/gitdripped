@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalAction, mutation } from "./_generated/server";
+import { internalAction, mutation, query } from "./_generated/server";
 import { internal, api } from "./_generated/api";
 import { GoogleGenAI } from "@google/genai";
 
@@ -10,27 +10,27 @@ import { GoogleGenAI } from "@google/genai";
 const ESCALATION_PROMPTS = [
   {
     level: 1,
-    prompt: "IMPORTANT: Maintain the person's identity, facial features, and gender characteristics throughout. SMILE DETECTION: If the person is smiling or showing teeth, keep their smile and positive expression. If the person is NOT smiling or showing teeth, give them a serious 'mean mug' expression with a stern, intimidating look. Apply gender-appropriate styling - for women use elegant, delicate jewelry (graceful chains, feminine earrings); for men use bold, masculine accessories (heavy chains, masculine styling). Now add: a subtle diamond chain necklace that suits their gender and style.",
+    prompt: "IMPORTANT: Maintain the person's identity, facial features, and gender characteristics throughout. SMILE DETECTION: If the person is smiling or showing teeth, keep their smile and positive expression. If the person is NOT smiling or showing teeth, give them a serious 'mean mug' expression with a stern, intimidating look. Apply gender-appropriate styling - for women use elegant, delicate jewelry (graceful diamond chains, feminine earrings); for men use bold, masculine accessories (heavy metal chains, rugged leather accessories, subtle tribal tattoos on arms/neck). Now add styling that suits their gender.",
     description: "Basic bling"
   },
   {
     level: 2,
-    prompt: "IMPORTANT: Maintain the person's identity and gender characteristics. SMILE DETECTION: If the person is smiling or showing teeth, add diamond grills and keep their happy expression. If the person is NOT smiling or showing teeth, give them a more intense 'mean mug' expression with a serious, intimidating look - NO grills for non-smiling faces. Apply gender-appropriate styling - for women use elegant jewelry (delicate layered chains, feminine diamond earrings, graceful styling); for men use masculine accessories (heavy diamond chains, bold earrings if appropriate, masculine styling). Now add: a massive diamond chain and diamond earrings that match their gender presentation.",
+    prompt: "IMPORTANT: Maintain the person's identity and gender characteristics. SMILE DETECTION: For women - if smiling add diamond grills, if not smiling give elegant stern look. For men - if smiling add gold grills, if not smiling give intense warrior stare. Apply gender-appropriate styling - for women use elegant jewelry (delicate layered diamond chains, feminine earrings, graceful styling); for men use medieval-inspired accessories (thick iron chains, chainmail shoulder pieces, geometric tribal tattoos, leather bracers). Add styling that matches their gender presentation.",
     description: "Getting dripped"
   },
   {
     level: 3,
-    prompt: "IMPORTANT: Maintain the person's identity and gender characteristics. SMILE DETECTION: If the person is smiling or showing teeth, add full diamond grills and maintain their joyful expression. If the person is NOT smiling or showing teeth, intensify their 'mean mug' with a fierce, intimidating stare - NO grills for non-smiling faces. Apply gender-appropriate styling - for women use elegant accessories (layered delicate chains, feminine diamond sunglasses, tiara or elegant crown, delicate watches); for men use masculine accessories (heavy layered chains, masculine diamond sunglasses, bold crown, masculine watches). Now add: multiple layered diamond chains, sunglasses with diamonds, a crown, and diamond watches on both wrists - all styled appropriately for their gender.",
+    prompt: "IMPORTANT: Maintain the person's identity and gender characteristics. SMILE DETECTION: For women - if smiling add full diamond grills, if not smiling give fierce elegant stare. For men - if smiling add gold grills, if not smiling give menacing warrior glare. Apply gender-appropriate styling - for women use elegant accessories (layered delicate diamond chains, feminine sunglasses, tiara or elegant crown, delicate watches); for men use medieval warrior accessories (multiple thick iron chain necklaces, dark metal sunglasses, imposing iron crown, chainmail arm guards, detailed sleeve tattoos with Nordic/tribal patterns). Add styling appropriate for their gender.",
     description: "Seriously dripped out"
   },
   {
     level: 4,
-    prompt: "IMPORTANT: Maintain the person's identity and gender characteristics. SMILE DETECTION: If the person is smiling or showing teeth, add maximum diamond grills and keep their triumphant expression. If the person is NOT smiling or showing teeth, give them the ultimate 'mean mug' with a menacing, powerful stare - NO grills for non-smiling faces. Apply gender-appropriate styling - for women use maximum elegant accessories (stacked delicate chains, feminine diamond sunglasses, elegant crown/tiara, flowing fabric cape that drapes behind them, delicate gloves); for men use maximum masculine accessories (enormous heavy chains, masculine diamond sunglasses, bold crown, flowing fabric cape that hangs behind their shoulders, masculine gloves). Now add: Maximum bling with enormous stacked diamond chains, diamond-encrusted sunglasses, a massive crown, a flowing fabric cape made of gold chains that clearly hangs behind the person (NOT wings), diamond gloves, and floating money symbols - all styled for their gender.",
+    prompt: "IMPORTANT: Maintain the person's identity and gender characteristics. SMILE DETECTION: For women - if smiling add maximum diamond grills, if not smiling give ultimate fierce expression. For men - if smiling add gold grills, if not smiling give ultimate intimidating warlord stare. Apply gender-appropriate styling - for women use maximum elegant accessories (stacked delicate diamond chains, feminine sunglasses, elegant crown/tiara, flowing silk cape behind them, delicate gloves); for men use maximum medieval warrior accessories (enormous layered iron chains, dark battle armor pieces, imposing battle helmet or crown, heavy chainmail cape that hangs behind their shoulders, armored gauntlets, extensive Norse/Celtic tattoo sleeves). Add floating symbols appropriate for their gender - diamonds for women, weapons/shields for men.",
     description: "Absolutely ridiculous"
   },
   {
     level: 5,
-    prompt: "ULTIMATE CHAOS MODE: Maintain the person's core identity and gender characteristics while transforming them into a diamond deity. SMILE DETECTION: If the person is smiling or showing teeth, give them divine diamond grills that sparkle with godlike power and maintain their victorious expression. If the person is NOT smiling or showing teeth, transform them into a fierce deity with an intimidating divine stare - NO grills for non-smiling divine beings. For women: elegant divine transformation with graceful diamond chains for hair, sparkling diamond eyes, golden aura, floating tiara/crown, flowing luminous fabric cape that drapes behind them (NOT wings), elegant diamond armor, delicately orbiting jewelry. For men: powerful divine transformation with bold diamond chains for hair, blazing diamond eyes, golden aura, floating crown, flowing luminous fabric cape that hangs behind their back (NOT wings), strong diamond armor, boldly orbiting jewelry. Add explosion of wealth symbols in background that matches their gender presentation. IMPORTANT: The cape must be clearly a fabric cape hanging behind the person, never wing-like appendages.",
+    prompt: "ULTIMATE CHAOS MODE: Maintain the person's core identity and gender characteristics while transforming them into a divine being. SMILE DETECTION: For women - if smiling give divine diamond grills with godlike sparkle, if not smiling give intimidating goddess stare. For men - if smiling give divine gold grills, if not smiling give fierce god of war stare. For women: elegant divine transformation with graceful diamond chains for hair, sparkling diamond eyes, golden aura, floating tiara/crown, flowing luminous silk cape that drapes behind them (NOT wings), elegant diamond armor, delicately orbiting jewelry. For men: powerful divine transformation into a god of war with flowing iron chain hair, blazing eyes, dark golden aura, floating battle crown, flowing luminous chainmail cape that hangs behind their back (NOT wings), imposing battle armor with runic inscriptions, boldly orbiting weapons and shields. Add explosion of symbols in background - diamonds/jewelry for women, weapons/ancient runes for men. IMPORTANT: The cape must be clearly a fabric cape hanging behind the person, never wing-like appendages.",
     description: "Peak absurdity achieved"
   }
 ];
@@ -72,6 +72,16 @@ function base64ToUint8Array(base64: string): Uint8Array {
  * Generate decorated image using Google's Gemini 2.5 Flash model
  * This is now an internal action that can be scheduled
  */
+/**
+ * Get image by ID (for internal use in actions)
+ */
+export const getImageById = query({
+  args: { imageId: v.id("images") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.imageId);
+  },
+});
+
 /**
  * Update image generation status
  */
@@ -124,13 +134,15 @@ export const saveProgressiveImage = mutation({
     generationCount: v.number(),
     rootImageId: v.string(),
     promptUsed: v.string(),
+    userId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { storageId, originalImageId, generationCount, rootImageId, promptUsed } = args;
+    const { storageId, originalImageId, generationCount, rootImageId, promptUsed, userId } = args;
 
     const generatedImageId = await ctx.db.insert("images", {
       body: storageId,
       createdAt: Date.now(),
+      userId: userId,
       isGenerated: true,
       originalImageId: originalImageId,
       generationCount,
@@ -177,9 +189,10 @@ export const scheduleProgressiveGeneration = mutation({
   args: {
     storageId: v.id("_storage"),
     rootImageId: v.optional(v.string()),  // Track the chain root
+    userId: v.optional(v.string()),       // User who owns this image
   },
   handler: async (ctx, args) => {
-    const { storageId, rootImageId } = args;
+    const { storageId, rootImageId, userId } = args;
     
     // Determine generation count and root
     let generationCount = 1;
@@ -203,6 +216,7 @@ export const scheduleProgressiveGeneration = mutation({
     const originalImageId = await ctx.db.insert("images", {
       body: storageId,
       createdAt: Date.now(),
+      userId: userId,
       isGenerated: false,
       generationStatus: "pending",
       generationCount,
@@ -380,6 +394,12 @@ export const generateProgressiveImage = internalAction({
         status: "processing",
       });
 
+      // Get the original image to extract userId
+      const originalImage = await ctx.runQuery(api.generate.getImageById, { imageId: originalImageId });
+      if (!originalImage) {
+        throw new Error("Original image not found");
+      }
+
       // Get progressive prompt for this level
       const promptConfig = getProgressivePrompt(generationCount);
       const prompt = promptConfig.prompt;
@@ -456,6 +476,7 @@ export const generateProgressiveImage = internalAction({
         generationCount,
         rootImageId,
         promptUsed: prompt,
+        userId: originalImage.userId,
       });
 
       // Mark original as completed
